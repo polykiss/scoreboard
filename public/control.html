@@ -238,6 +238,17 @@
       border-radius: 8px;
       padding: 4px;
     }
+
+    select {
+      width: 100%;
+      font: inherit;
+      font-size: 16px;
+      padding: 12px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -261,6 +272,11 @@
         <label><input type="radio" name="preset" value="1080p"><span>1080p</span></label>
         <label><input type="radio" name="preset" value="4K"><span>4K</span></label>
       </div>
+    </div>
+
+    <div class="field">
+      <label>Font</label>
+      <select id="selectedFont"></select>
     </div>
 
     <div class="field">
@@ -350,6 +366,7 @@
     const glowColorEl   = document.getElementById('glowColor');
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
+    const fontSelectEl       = document.getElementById('selectedFont');
 
     let ws = null;
     let currentState = null;
@@ -363,9 +380,10 @@
       el.addEventListener('pointerdown',   start);
       el.addEventListener('pointerup',     stop);
       el.addEventListener('pointercancel', stop);
+      el.addEventListener('focus',         start);
       el.addEventListener('blur',          stop);
     }
-    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput]
+    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput, fontSelectEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -395,6 +413,13 @@
       glowIntensityValue.textContent = state.glowIntensity;
 
       if (!interacting.has(glowColorEl)) glowColorEl.value = state.glowColor;
+
+      if (!interacting.has(fontSelectEl) && state.selectedFont) {
+        // Only update if the option exists (dropdown may not be populated yet).
+        const hasOption = Array.from(fontSelectEl.options)
+          .some((o) => o.value === state.selectedFont);
+        if (hasOption) fontSelectEl.value = state.selectedFont;
+      }
 
       flashEl.checked = !!state.flashOnUpdate;
       glowEl.checked  = !!state.glow;
@@ -485,6 +510,7 @@
       patch({ offsetY: v });
     });
     flashEl.addEventListener('change',    () => patch({ flashOnUpdate: flashEl.checked }));
+    fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
     glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
     glowColorEl.addEventListener('input', () => patch({ glowColor: glowColorEl.value }));
     glowIntensityEl.addEventListener('input', () => {
@@ -517,6 +543,27 @@
         });
       });
     });
+
+    // Populate the font dropdown from /fonts on load. If a state broadcast
+    // arrives before this resolves, syncUI will re-apply the selected value
+    // once the options exist.
+    fetch('/fonts')
+      .then((r) => r.json())
+      .then(({ fonts }) => {
+        fontSelectEl.innerHTML = '';
+        for (const name of fonts) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          fontSelectEl.appendChild(opt);
+        }
+        if (currentState && currentState.selectedFont) {
+          const hasOption = Array.from(fontSelectEl.options)
+            .some((o) => o.value === currentState.selectedFont);
+          if (hasOption) fontSelectEl.value = currentState.selectedFont;
+        }
+      })
+      .catch(() => {});
 
     // --- websocket ---
     function connect() {

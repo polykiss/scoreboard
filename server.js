@@ -8,6 +8,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = 3000;
 const STATE_FILE = path.join(__dirname, 'state.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const FONTS_DIR = path.join(PUBLIC_DIR, 'fonts');
 
 const DEFAULT_STATE = {
   count: 0,
@@ -21,6 +22,7 @@ const DEFAULT_STATE = {
   glowColor: '#ffffff',
   glowIntensity: 20,
   resolutionPreset: '1080p',
+  selectedFont: 'jd_led5',
 };
 
 // Whitelist of keys that controllers may update via the `patch` action.
@@ -36,21 +38,42 @@ const PATCH_KEYS = new Set([
   'glowColor',
   'glowIntensity',
   'resolutionPreset',
+  'selectedFont',
 ]);
 
+function listFonts() {
+  try {
+    return fs.readdirSync(FONTS_DIR)
+      .filter((f) => /\.ttf$/i.test(f))
+      .map((f) => f.replace(/\.ttf$/i, ''))
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  } catch {
+    return [];
+  }
+}
+
+function resolveSelectedFont(fonts, desired) {
+  if (desired && fonts.includes(desired)) return desired;
+  if (fonts.includes('jd_led5')) return 'jd_led5';
+  return fonts[0] || 'jd_led5';
+}
+
 function loadState() {
+  let loaded = { ...DEFAULT_STATE };
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf8');
       const parsed = JSON.parse(raw);
       // Merge over defaults so newly added fields get sensible values
       // when loading an older state.json.
-      return { ...DEFAULT_STATE, ...parsed };
+      loaded = { ...DEFAULT_STATE, ...parsed };
     }
   } catch (err) {
     console.error('Failed to load state.json, using defaults:', err.message);
   }
-  return { ...DEFAULT_STATE };
+  // Validate selectedFont — if the file disappeared, fall back gracefully.
+  loaded.selectedFont = resolveSelectedFont(listFonts(), loaded.selectedFont);
+  return loaded;
 }
 
 let state = loadState();
@@ -83,6 +106,11 @@ function sendHtml(file) {
 }
 app.get('/display', sendHtml('display.html'));
 app.get('/control', sendHtml('control.html'));
+
+app.get('/fonts', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ fonts: listFonts() });
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -148,9 +176,24 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  const ip = getLocalIP();
-  console.log(`Scoreboard listening on 0.0.0.0:${PORT}`);
-  console.log(`  Display:    http://${ip}:${PORT}/display`);
-  console.log(`  Controller: http://${ip}:${PORT}/control`);
-});
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log(`Scoreboard listening on 0.0.0.0:${PORT}`);
+    console.log(`  Display:    http://${ip}:${PORT}/display`);
+    console.log(`  Controller: http://${ip}:${PORT}/control`);
+  });
+}
+
+module.exports = {
+  app,
+  server,
+  handleMessage,
+  getState: () => state,
+  resetState: () => { state = { ...DEFAULT_STATE }; },
+  listFonts,
+  resolveSelectedFont,
+  loadState,
+  DEFAULT_STATE,
+  PATCH_KEYS,
+};
