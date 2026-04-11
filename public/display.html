@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scoreboard</title>
+  <style>
+    @font-face {
+      font-family: 'JD LED5';
+      src: url('/fonts/jd_led5.ttf') format('truetype');
+      font-display: block;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      cursor: none;
+    }
+
+    body {
+      display: flex;
+      /* justify-content / align-items set from state */
+    }
+
+    #offset {
+      /* transform: translate(offsetX, offsetY) set from state */
+    }
+
+    #count {
+      font-family: 'JD LED5', monospace;
+      color: #fff;
+      line-height: 1;
+      white-space: nowrap;
+      /* font-size and text-shadow set from state */
+    }
+
+    @keyframes flash-pulse {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    #count.flash {
+      animation: flash-pulse 200ms ease-out;
+    }
+  </style>
+</head>
+<body>
+  <div id="offset"><div id="count">0</div></div>
+
+  <script>
+    const body = document.body;
+    const offsetEl = document.getElementById('offset');
+    const countEl = document.getElementById('count');
+
+    const H_MAP = { left: 'flex-start', center: 'center', right: 'flex-end' };
+    const V_MAP = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
+
+    let lastCount = null;
+
+    function applyState(state) {
+      // Alignment (flex on body)
+      body.style.justifyContent = H_MAP[state.alignH] || 'center';
+      body.style.alignItems = V_MAP[state.alignV] || 'center';
+
+      // Offset (translate on wrapper, kept separate from the flash scale)
+      offsetEl.style.transform =
+        `translate(${state.offsetX}px, ${state.offsetY}px)`;
+
+      // Font size
+      countEl.style.fontSize = state.fontSize + 'px';
+
+      // Glow
+      if (state.glow) {
+        const c = state.glowColor;
+        const i = Number(state.glowIntensity) || 0;
+        countEl.style.textShadow =
+          `0 0 ${i}px ${c}, 0 0 ${i * 2}px ${c}`;
+      } else {
+        countEl.style.textShadow = 'none';
+      }
+
+      // Count text (with optional flash)
+      const countChanged = lastCount !== null && lastCount !== state.count;
+      countEl.textContent = Number(state.count).toLocaleString('en-US');
+
+      if (countChanged && state.flashOnUpdate) {
+        // Restart the animation by removing + forcing reflow + re-adding.
+        countEl.classList.remove('flash');
+        void countEl.offsetWidth;
+        countEl.classList.add('flash');
+      }
+
+      lastCount = state.count;
+    }
+
+    let ws = null;
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}`);
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'state') applyState(msg.state);
+        } catch {}
+      };
+      ws.onclose = () => setTimeout(connect, 2000);
+      ws.onerror = () => { try { ws.close(); } catch {} };
+    }
+    connect();
+  </script>
+</body>
+</html>

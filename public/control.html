@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Scoreboard Control</title>
+  <style>
+    :root {
+      --bg: #0e0e10;
+      --panel: #1c1c1f;
+      --panel-2: #27272b;
+      --border: #333;
+      --text: #fff;
+      --muted: #9a9a9f;
+      --green: #2e7d32;
+      --green-bright: #3fa045;
+      --red: #b00020;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 16px 16px 32px;
+      padding-top: 44px;
+    }
+
+    /* ---------- connection status ---------- */
+
+    #status {
+      position: fixed;
+      top: 10px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      z-index: 10;
+    }
+    #status .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--red);
+    }
+    #status.connected .dot { background: var(--green-bright); }
+
+    /* ---------- buttons ---------- */
+
+    button {
+      font: inherit;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    button:active { filter: brightness(1.25); }
+
+    .plus {
+      display: block;
+      width: 100%;
+      min-height: 42vh;
+      font-size: clamp(72px, 22vw, 180px);
+      font-weight: 700;
+      background: var(--green);
+      border-color: var(--green);
+      margin-bottom: 14px;
+      line-height: 1;
+    }
+
+    .minus {
+      display: block;
+      width: 65%;
+      margin: 0 auto 22px;
+      font-size: 34px;
+      background: var(--panel-2);
+      padding: 18px;
+    }
+
+    .set-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .set-row input {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      font-size: 22px;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+    }
+    .set-row button {
+      padding: 14px 22px;
+      font-size: 18px;
+    }
+
+    .reset {
+      display: block;
+      width: 100%;
+      background: var(--red);
+      border-color: var(--red);
+      font-size: 18px;
+      margin-bottom: 24px;
+    }
+
+    /* ---------- setup panel ---------- */
+
+    details {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px 16px 16px;
+    }
+    summary {
+      list-style: none;
+      padding: 12px 0;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '▸ ';
+      color: var(--muted);
+      font-size: 12px;
+      vertical-align: 1px;
+    }
+    details[open] summary::before { content: '▾ '; }
+
+    .field { margin: 14px 0; }
+    .field > label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .field .value {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green-bright);
+    }
+
+    .segments {
+      display: flex;
+      gap: 8px;
+    }
+    .segments label {
+      flex: 1;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .segments input { display: none; }
+    .segments label:has(input:checked) {
+      background: #3a3a3f;
+      border-color: #555;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .toggle-row > label {
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+    }
+    .toggle-row input[type="checkbox"] {
+      width: 26px;
+      height: 26px;
+      accent-color: var(--green-bright);
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 44px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="status"><span class="dot"></span><span class="label">disconnected</span></div>
+
+  <button class="plus" id="plus">+1</button>
+  <button class="minus" id="minus">−1</button>
+
+  <div class="set-row">
+    <input type="number" id="setInput" inputmode="numeric" placeholder="Set to…">
+    <button id="setBtn">Set</button>
+  </div>
+  <button class="reset" id="resetBtn">Reset to 0</button>
+
+  <details>
+    <summary>Setup</summary>
+
+    <div class="field">
+      <label>Resolution preset</label>
+      <div class="segments">
+        <label><input type="radio" name="preset" value="1080p"><span>1080p</span></label>
+        <label><input type="radio" name="preset" value="4K"><span>4K</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Font size <span class="value" id="fontSizeValue"></span></label>
+      <input type="range" id="fontSize">
+    </div>
+
+    <div class="field">
+      <label>Horizontal alignment</label>
+      <div class="segments">
+        <label><input type="radio" name="alignH" value="left"><span>Left</span></label>
+        <label><input type="radio" name="alignH" value="center"><span>Center</span></label>
+        <label><input type="radio" name="alignH" value="right"><span>Right</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Offset X <span class="value" id="offsetXValue"></span></label>
+      <input type="range" id="offsetX">
+    </div>
+
+    <div class="field">
+      <label>Vertical alignment</label>
+      <div class="segments">
+        <label><input type="radio" name="alignV" value="top"><span>Top</span></label>
+        <label><input type="radio" name="alignV" value="center"><span>Center</span></label>
+        <label><input type="radio" name="alignV" value="bottom"><span>Bottom</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Offset Y <span class="value" id="offsetYValue"></span></label>
+      <input type="range" id="offsetY">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Flash on update</label>
+      <input type="checkbox" id="flashOnUpdate">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Glow</label>
+      <input type="checkbox" id="glow">
+    </div>
+
+    <div class="field">
+      <label>Glow color</label>
+      <input type="color" id="glowColor">
+    </div>
+
+    <div class="field">
+      <label>Glow intensity <span class="value" id="glowIntensityValue"></span></label>
+      <input type="range" id="glowIntensity" min="0" max="100">
+    </div>
+  </details>
+
+  <script>
+    // Resolution presets drive slider bounds and "default" font size.
+    const PRESETS = {
+      '1080p': {
+        fontSizeMin: 50,  fontSizeMax: 800,  fontSizeDefault: 400,
+        offsetMin: -500,  offsetMax: 500,
+      },
+      '4K': {
+        fontSizeMin: 100, fontSizeMax: 1500, fontSizeDefault: 800,
+        offsetMin: -1000, offsetMax: 1000,
+      },
+    };
+
+    const statusEl      = document.getElementById('status');
+    const statusLabel   = statusEl.querySelector('.label');
+
+    const plusBtn       = document.getElementById('plus');
+    const minusBtn      = document.getElementById('minus');
+    const setInput      = document.getElementById('setInput');
+    const setBtn        = document.getElementById('setBtn');
+    const resetBtn      = document.getElementById('resetBtn');
+
+    const fontSizeEl    = document.getElementById('fontSize');
+    const fontSizeValue = document.getElementById('fontSizeValue');
+    const offsetXEl     = document.getElementById('offsetX');
+    const offsetXValue  = document.getElementById('offsetXValue');
+    const offsetYEl     = document.getElementById('offsetY');
+    const offsetYValue  = document.getElementById('offsetYValue');
+    const flashEl       = document.getElementById('flashOnUpdate');
+    const glowEl        = document.getElementById('glow');
+    const glowColorEl   = document.getElementById('glowColor');
+    const glowIntensityEl    = document.getElementById('glowIntensity');
+    const glowIntensityValue = document.getElementById('glowIntensityValue');
+
+    let ws = null;
+    let currentState = null;
+
+    // Track which controls are being actively touched so incoming broadcasts
+    // don't stomp on a mid-drag slider.
+    const interacting = new Set();
+    function trackInteraction(el) {
+      const start = () => interacting.add(el);
+      const stop  = () => interacting.delete(el);
+      el.addEventListener('pointerdown',   start);
+      el.addEventListener('pointerup',     stop);
+      el.addEventListener('pointercancel', stop);
+      el.addEventListener('blur',          stop);
+    }
+    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput]
+      .forEach(trackInteraction);
+
+    function applyPresetBounds(preset) {
+      const p = PRESETS[preset] || PRESETS['1080p'];
+      fontSizeEl.min = p.fontSizeMin;
+      fontSizeEl.max = p.fontSizeMax;
+      offsetXEl.min  = p.offsetMin;
+      offsetXEl.max  = p.offsetMax;
+      offsetYEl.min  = p.offsetMin;
+      offsetYEl.max  = p.offsetMax;
+    }
+
+    function syncUI(state) {
+      currentState = state;
+      applyPresetBounds(state.resolutionPreset);
+
+      if (!interacting.has(fontSizeEl))  fontSizeEl.value  = state.fontSize;
+      fontSizeValue.textContent = state.fontSize + 'px';
+
+      if (!interacting.has(offsetXEl))   offsetXEl.value   = state.offsetX;
+      offsetXValue.textContent = state.offsetX + 'px';
+
+      if (!interacting.has(offsetYEl))   offsetYEl.value   = state.offsetY;
+      offsetYValue.textContent = state.offsetY + 'px';
+
+      if (!interacting.has(glowIntensityEl)) glowIntensityEl.value = state.glowIntensity;
+      glowIntensityValue.textContent = state.glowIntensity;
+
+      if (!interacting.has(glowColorEl)) glowColorEl.value = state.glowColor;
+
+      flashEl.checked = !!state.flashOnUpdate;
+      glowEl.checked  = !!state.glow;
+
+      const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
+      if (hRadio) hRadio.checked = true;
+      const vRadio = document.querySelector(`input[name="alignV"][value="${state.alignV}"]`);
+      if (vRadio) vRadio.checked = true;
+      const pRadio = document.querySelector(`input[name="preset"][value="${state.resolutionPreset}"]`);
+      if (pRadio) pRadio.checked = true;
+    }
+
+    function send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    }
+    function patch(p) { send({ type: 'patch', patch: p }); }
+
+    // --- count controls ---
+    plusBtn.addEventListener('click',  () => send({ type: 'increment', by:  1 }));
+    minusBtn.addEventListener('click', () => send({ type: 'increment', by: -1 }));
+
+    setBtn.addEventListener('click', () => {
+      const v = parseInt(setInput.value, 10);
+      if (!Number.isFinite(v)) return;
+      if (!confirm(`Set count to ${v}?`)) return;
+      send({ type: 'set', value: v });
+      setInput.value = '';
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reset count to 0?')) return;
+      send({ type: 'reset' });
+    });
+
+    // --- setup controls ---
+    fontSizeEl.addEventListener('input', () => {
+      const v = parseInt(fontSizeEl.value, 10);
+      fontSizeValue.textContent = v + 'px';
+      patch({ fontSize: v });
+    });
+    offsetXEl.addEventListener('input', () => {
+      const v = parseInt(offsetXEl.value, 10);
+      offsetXValue.textContent = v + 'px';
+      patch({ offsetX: v });
+    });
+    offsetYEl.addEventListener('input', () => {
+      const v = parseInt(offsetYEl.value, 10);
+      offsetYValue.textContent = v + 'px';
+      patch({ offsetY: v });
+    });
+    flashEl.addEventListener('change',    () => patch({ flashOnUpdate: flashEl.checked }));
+    glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
+    glowColorEl.addEventListener('input', () => patch({ glowColor: glowColorEl.value }));
+    glowIntensityEl.addEventListener('input', () => {
+      const v = parseInt(glowIntensityEl.value, 10);
+      glowIntensityValue.textContent = v;
+      patch({ glowIntensity: v });
+    });
+
+    document.querySelectorAll('input[name="alignH"]').forEach(el =>
+      el.addEventListener('change', () => el.checked && patch({ alignH: el.value }))
+    );
+    document.querySelectorAll('input[name="alignV"]').forEach(el =>
+      el.addEventListener('change', () => el.checked && patch({ alignV: el.value }))
+    );
+
+    // Resolution preset: update local bounds, clamp offsets to new range,
+    // jump font size to the preset default, send one patch.
+    document.querySelectorAll('input[name="preset"]').forEach(el => {
+      el.addEventListener('change', () => {
+        if (!el.checked) return;
+        const p = PRESETS[el.value];
+        if (!p) return;
+        applyPresetBounds(el.value);
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+        patch({
+          resolutionPreset: el.value,
+          fontSize: p.fontSizeDefault,
+          offsetX: clamp(currentState?.offsetX ?? 0, p.offsetMin, p.offsetMax),
+          offsetY: clamp(currentState?.offsetY ?? 0, p.offsetMin, p.offsetMax),
+        });
+      });
+    });
+
+    // --- websocket ---
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}`);
+      ws.onopen = () => {
+        statusEl.classList.add('connected');
+        statusLabel.textContent = 'connected';
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'state') syncUI(msg.state);
+        } catch {}
+      };
+      ws.onclose = () => {
+        statusEl.classList.remove('connected');
+        statusLabel.textContent = 'disconnected';
+        setTimeout(connect, 2000);
+      };
+      ws.onerror = () => { try { ws.close(); } catch {} };
+    }
+    connect();
+  </script>
+</body>
+</html>
