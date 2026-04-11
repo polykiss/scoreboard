@@ -23,6 +23,10 @@ const DEFAULT_STATE = {
   glowIntensity: 20,
   resolutionPreset: '1080p',
   selectedFont: 'jd_led5',
+  smallFlashEnabled: false,
+  smallFlashInterval: 10,
+  bigFlashEnabled: false,
+  bigFlashInterval: 100,
 };
 
 // Whitelist of keys that controllers may update via the `patch` action.
@@ -39,6 +43,10 @@ const PATCH_KEYS = new Set([
   'glowIntensity',
   'resolutionPreset',
   'selectedFont',
+  'smallFlashEnabled',
+  'smallFlashInterval',
+  'bigFlashEnabled',
+  'bigFlashInterval',
 ]);
 
 function listFonts() {

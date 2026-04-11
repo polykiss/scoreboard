@@ -239,7 +239,8 @@
       padding: 4px;
     }
 
-    select {
+    select,
+    .field input[type="number"] {
       width: 100%;
       font: inherit;
       font-size: 16px;
@@ -331,6 +332,26 @@
       <label>Glow intensity <span class="value" id="glowIntensityValue"></span></label>
       <input type="range" id="glowIntensity" min="0" max="100">
     </div>
+
+    <div class="field toggle-row">
+      <label>Small flash</label>
+      <input type="checkbox" id="smallFlashEnabled">
+    </div>
+
+    <div class="field">
+      <label>Small interval</label>
+      <input type="number" id="smallFlashInterval" min="1" step="1">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Big flash</label>
+      <input type="checkbox" id="bigFlashEnabled">
+    </div>
+
+    <div class="field">
+      <label>Big interval</label>
+      <input type="number" id="bigFlashInterval" min="1" step="1">
+    </div>
   </details>
 
   <script>
@@ -367,6 +388,10 @@
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
+    const smallFlashEnabledEl  = document.getElementById('smallFlashEnabled');
+    const smallFlashIntervalEl = document.getElementById('smallFlashInterval');
+    const bigFlashEnabledEl    = document.getElementById('bigFlashEnabled');
+    const bigFlashIntervalEl   = document.getElementById('bigFlashInterval');
 
     let ws = null;
     let currentState = null;
@@ -383,7 +408,8 @@
       el.addEventListener('focus',         start);
       el.addEventListener('blur',          stop);
     }
-    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput, fontSelectEl]
+    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput,
+     fontSelectEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -423,6 +449,13 @@
 
       flashEl.checked = !!state.flashOnUpdate;
       glowEl.checked  = !!state.glow;
+
+      smallFlashEnabledEl.checked = !!state.smallFlashEnabled;
+      bigFlashEnabledEl.checked   = !!state.bigFlashEnabled;
+      if (!interacting.has(smallFlashIntervalEl))
+        smallFlashIntervalEl.value = state.smallFlashInterval;
+      if (!interacting.has(bigFlashIntervalEl))
+        bigFlashIntervalEl.value = state.bigFlashInterval;
 
       const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
       if (hRadio) hRadio.checked = true;
@@ -511,6 +544,18 @@
     });
     flashEl.addEventListener('change',    () => patch({ flashOnUpdate: flashEl.checked }));
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
+    smallFlashEnabledEl.addEventListener('change',
+      () => patch({ smallFlashEnabled: smallFlashEnabledEl.checked }));
+    bigFlashEnabledEl.addEventListener('change',
+      () => patch({ bigFlashEnabled: bigFlashEnabledEl.checked }));
+    smallFlashIntervalEl.addEventListener('change', () => {
+      const v = parseInt(smallFlashIntervalEl.value, 10);
+      if (Number.isFinite(v) && v >= 1) patch({ smallFlashInterval: v });
+    });
+    bigFlashIntervalEl.addEventListener('change', () => {
+      const v = parseInt(bigFlashIntervalEl.value, 10);
+      if (Number.isFinite(v) && v >= 1) patch({ bigFlashInterval: v });
+    });
     glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
     glowColorEl.addEventListener('input', () => patch({ glowColor: glowColorEl.value }));
     glowIntensityEl.addEventListener('input', () => {
