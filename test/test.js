@@ -192,19 +192,21 @@ test('display renderer URL-encodes font names with spaces', () => {
 // Feature 2 — milestone flash effects
 
 test('small flash fires on increment across boundary', () => {
-  const { renderer, countEl, clock } = setupRenderer(true);
+  const { renderer, document, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 9 });
   assert.strictEqual(renderer._isLocked(), false);
 
   renderer.applyState({ ...FLASH_BASE, count: 10 });
   assert.strictEqual(renderer._isLocked(), true);
   assert.strictEqual(countEl.textContent, '10');
-  assert.ok(countEl.classList.contains('inverted'), 'should be inverted at t=0');
+  // The invert class goes on <body> so the whole viewport flashes.
+  assert.ok(document.body.classList.contains('inverted'), 'body should be inverted at t=0');
+  assert.ok(!countEl.classList.contains('inverted'), 'count element is not the invert target');
 
-  // Small = 3 cycles * 500ms = 1500ms total.
-  clock.advance(1500);
+  // Small = 3 cycles * 250ms = 750ms total.
+  clock.advance(750);
   assert.strictEqual(renderer._isLocked(), false);
-  assert.ok(!countEl.classList.contains('inverted'), 'inverted cleaned up');
+  assert.ok(!document.body.classList.contains('inverted'), 'inverted cleaned up');
 });
 
 test('milestone does not fire on decrement', () => {
@@ -239,11 +241,11 @@ test('big overpowers small when both intervals match', () => {
   renderer.applyState({ ...state, count: 10 });
   assert.strictEqual(renderer._isLocked(), true);
 
-  // Small would be done at 1500ms. Big runs for 5000ms.
-  clock.advance(3000);
+  // Small would be done at 750ms. Big runs for 2500ms.
+  clock.advance(1500);
   assert.strictEqual(renderer._isLocked(), true, 'still locked — big is still running');
 
-  clock.advance(2100);
+  clock.advance(1100);
   assert.strictEqual(renderer._isLocked(), false, 'big finished');
 });
 
@@ -264,8 +266,8 @@ test('locked animation ignores count updates but tracks latest', () => {
   assert.strictEqual(countEl.textContent, '10', 'still pinned');
   assert.strictEqual(renderer._getLatestCount(), 15);
 
-  // End animation — jump to latest.
-  clock.advance(1500);
+  // End animation — jump to latest. Small = 750ms.
+  clock.advance(750);
   assert.strictEqual(renderer._isLocked(), false);
   assert.strictEqual(countEl.textContent, '15', 'atomic jump to latest');
 });
@@ -298,17 +300,17 @@ test('layout settings update during animation lock', () => {
 test('second milestone during active animation is ignored (no queuing)', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 9 });
-  renderer.applyState({ ...FLASH_BASE, count: 10 }); // fires small
+  renderer.applyState({ ...FLASH_BASE, count: 10 }); // fires small (750ms)
   assert.strictEqual(renderer._isLocked(), true);
 
   // Partially through — another milestone value arrives.
-  clock.advance(500);
+  clock.advance(250);
   renderer.applyState({ ...FLASH_BASE, count: 20 });
   assert.strictEqual(renderer._isLocked(), true, 'no new flash queued');
   assert.strictEqual(countEl.textContent, '10', 'still showing original');
 
   // Drain the original animation.
-  clock.advance(1000);
+  clock.advance(500);
   assert.strictEqual(renderer._isLocked(), false);
   assert.strictEqual(countEl.textContent, '20', 'jumps to latest count');
 

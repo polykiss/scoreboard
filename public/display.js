@@ -7,11 +7,11 @@
   const V_MAP = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
 
   // Timing constants for the milestone flash. Each "invert" is one
-  // 500ms on/off cycle (250ms inverted, 250ms normal). N cycles runs
-  // for N * 500ms total.
-  const FLASH_HALF_MS = 250;
-  const SMALL_CYCLES = 3;  // 1.5s total
-  const BIG_CYCLES = 10;   // 5s total
+  // 250ms on/off cycle (125ms inverted, 125ms normal). N cycles runs
+  // for N * 250ms total.
+  const FLASH_HALF_MS = 125;
+  const SMALL_CYCLES = 3;  // 0.75s total
+  const BIG_CYCLES = 10;   // 2.5s total
 
   function createRenderer(opts) {
     const { document, body, offsetEl, countEl } = opts;
@@ -67,19 +67,20 @@
 
     // Drives the invert/revert schedule for the currently-running flash.
     // animationStep counts half-cycles: even = invert on, odd = invert off.
-    // When step >= totalSteps we clean up and atomically jump to the
-    // latest-known count.
+    // The class goes on <body> so the whole viewport flashes white, not
+    // just the count element's box. When step >= totalSteps we clean up
+    // and atomically jump to the latest-known count.
     function advanceAnimation() {
       if (animationStep >= animationTotalSteps) {
-        countEl.classList.remove('inverted');
+        body.classList.remove('inverted');
         animationLocked = false;
         animationStep = 0;
         animationTotalSteps = 0;
         if (latestCount !== null) writeCount(latestCount);
         return;
       }
-      if (animationStep % 2 === 0) countEl.classList.add('inverted');
-      else countEl.classList.remove('inverted');
+      if (animationStep % 2 === 0) body.classList.add('inverted');
+      else body.classList.remove('inverted');
       animationStep++;
       setTimeoutFn(advanceAnimation, FLASH_HALF_MS);
     }

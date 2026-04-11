@@ -42,11 +42,14 @@
       animation: flash-pulse 200ms ease-out;
     }
 
-    /* Milestone flash: swap foreground/background. Glow (text-shadow)
-       layers on top and stays visible. */
-    #count.inverted {
+    /* Milestone flash: invert the full viewport. The class goes on <body>
+       so the white fills the whole screen rather than the count's box.
+       Glow (text-shadow) layers on top and stays visible. */
+    body.inverted {
+      background: #fff;
+    }
+    body.inverted #count {
       color: #000;
-      background-color: #fff;
     }
   </style>
 </head>
