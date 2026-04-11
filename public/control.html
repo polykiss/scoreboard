@@ -118,6 +118,35 @@
       border-color: var(--red);
       font-size: 18px;
       margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    /* Fill overlay for hold-to-confirm. Driven by a CSS transition so it
+       stays smooth regardless of main-thread load. Uses scaleX so no
+       layout work — just compositor. */
+    .reset::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: #7a0018;
+      transform: scaleX(0);
+      transform-origin: left center;
+      pointer-events: none;
+    }
+    .reset.holding::before {
+      transform: scaleX(1);
+      transition: transform 5s linear;
+    }
+    /* Keep the label above the fill overlay. */
+    .reset .reset-label {
+      position: relative;
+      z-index: 1;
+    }
+    /* Brief success flash after a completed hold. */
+    .reset.success {
+      background: var(--green);
+      border-color: var(--green);
     }
 
     /* ---------- setup panel ---------- */
@@ -221,7 +250,7 @@
     <input type="number" id="setInput" inputmode="numeric" placeholder="Set to…">
     <button id="setBtn">Set</button>
   </div>
-  <button class="reset" id="resetBtn">Reset to 0</button>
+  <button class="reset" id="resetBtn"><span class="reset-label">Reset to 0</span></button>
 
   <details>
     <summary>Setup</summary>
@@ -394,9 +423,50 @@
       setInput.value = '';
     });
 
-    resetBtn.addEventListener('click', () => {
-      send({ type: 'reset' });
-    });
+    // Hold-to-confirm reset. Pointer events (not mouse/touch) so desktop
+    // and mobile share one code path with no dual-firing. The fill is
+    // driven by CSS transition — we just toggle the .holding class.
+    const RESET_HOLD_MS = 5000;
+    const resetLabelEl = resetBtn.querySelector('.reset-label');
+    let resetTimer = null;
+    let resetSuccessTimer = null;
+
+    function startResetHold() {
+      if (resetTimer) return;
+      // Cancel any lingering success flash before starting a new hold.
+      if (resetSuccessTimer) {
+        clearTimeout(resetSuccessTimer);
+        resetSuccessTimer = null;
+        resetBtn.classList.remove('success');
+      }
+      resetBtn.classList.add('holding');
+      resetLabelEl.textContent = 'Hold to reset…';
+      resetTimer = setTimeout(() => {
+        resetTimer = null;
+        resetBtn.classList.remove('holding');
+        send({ type: 'reset' });
+        resetBtn.classList.add('success');
+        resetLabelEl.textContent = 'Reset ✓';
+        resetSuccessTimer = setTimeout(() => {
+          resetSuccessTimer = null;
+          resetBtn.classList.remove('success');
+          resetLabelEl.textContent = 'Reset to 0';
+        }, 500);
+      }, RESET_HOLD_MS);
+    }
+
+    function cancelResetHold() {
+      if (!resetTimer) return;
+      clearTimeout(resetTimer);
+      resetTimer = null;
+      resetBtn.classList.remove('holding');
+      resetLabelEl.textContent = 'Reset to 0';
+    }
+
+    resetBtn.addEventListener('pointerdown',   startResetHold);
+    resetBtn.addEventListener('pointerup',     cancelResetHold);
+    resetBtn.addEventListener('pointercancel', cancelResetHold);
+    resetBtn.addEventListener('pointerleave',  cancelResetHold);
 
     // --- setup controls ---
     fontSizeEl.addEventListener('input', () => {
