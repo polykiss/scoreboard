@@ -90,6 +90,23 @@
       padding: 18px;
     }
 
+    /* Press feedback for +1/-1. The transition lives on the base rule so
+       the *release* is smooth; .pressed sets transition: none so the
+       press is instant (no delay on touch). touch-action: manipulation
+       keeps iOS Safari from eating the first pointerdown with its
+       300ms double-tap-zoom. */
+    .plus,
+    .minus {
+      touch-action: manipulation;
+      transition: transform 80ms ease-out, filter 80ms ease-out;
+    }
+    .plus.pressed,
+    .minus.pressed {
+      transform: scale(0.96);
+      filter: brightness(1.35);
+      transition: none;
+    }
+
     .set-row {
       display: flex;
       gap: 8px;
@@ -473,6 +490,21 @@
     // --- count controls ---
     plusBtn.addEventListener('click',  () => send({ type: 'increment', by:  1 }));
     minusBtn.addEventListener('click', () => send({ type: 'increment', by: -1 }));
+
+    // Press-state feedback for +1/-1. Driven by pointer events (not :active)
+    // because iOS Safari's :active is unreliable on buttons with pointer
+    // listeners attached. classList.remove is idempotent, so duplicate
+    // release events from rapid tapping can't get the button stuck.
+    function trackPress(btn) {
+      const press   = () => btn.classList.add('pressed');
+      const release = () => btn.classList.remove('pressed');
+      btn.addEventListener('pointerdown',   press);
+      btn.addEventListener('pointerup',     release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('pointerleave',  release);
+    }
+    trackPress(plusBtn);
+    trackPress(minusBtn);
 
     setBtn.addEventListener('click', () => {
       const v = parseInt(setInput.value, 10);

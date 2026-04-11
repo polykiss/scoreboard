@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const {
@@ -328,6 +330,109 @@ test('milestone fires after animation ends when new increment lands on interval'
 
   renderer.applyState({ ...FLASH_BASE, count: 20 });  // small fires again
   assert.strictEqual(renderer._isLocked(), true);
+});
+
+// ---------------------------------------------------------------------------
+// Controller — press-state feedback on +1/-1
+
+function loadControlHtml() {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'control.html'),
+    'utf8'
+  );
+  const sends = [];
+
+  const dom = new JSDOM(html, {
+    url: 'http://localhost/',
+    runScripts: 'dangerously',
+    beforeParse(window) {
+      // Stub WebSocket — the control script builds one in connect() and
+      // uses ws.readyState === WebSocket.OPEN to decide whether to send.
+      class FakeWebSocket {
+        constructor() { this.readyState = 1; }
+        send(data) { sends.push(JSON.parse(data)); }
+        close() {}
+      }
+      FakeWebSocket.OPEN = 1;
+      window.WebSocket = FakeWebSocket;
+
+      // Stub fetch — the controller fetches /fonts on load.
+      window.fetch = () => Promise.resolve({
+        json: () => Promise.resolve({ fonts: ['jd_led5'] }),
+      });
+    },
+  });
+
+  return { dom, sends };
+}
+
+function fireEvent(target, type) {
+  // jsdom's PointerEvent constructor is flaky across versions — a plain
+  // Event with the right type fires registered listeners just fine.
+  const evt = new target.ownerDocument.defaultView.Event(type, {
+    bubbles: true,
+    cancelable: true,
+  });
+  target.dispatchEvent(evt);
+}
+
+test('press-state toggles on +1/-1 pointer events', async () => {
+  const { dom, sends } = loadControlHtml();
+  // Let the inline script run to completion and any pending microtasks
+  // (fetch().then(...)) settle.
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const { document } = dom.window;
+  const plus  = document.getElementById('plus');
+  const minus = document.getElementById('minus');
+
+  // --- +1 button ---
+  fireEvent(plus, 'pointerdown');
+  assert.ok(plus.classList.contains('pressed'), 'plus pressed on pointerdown');
+
+  fireEvent(plus, 'pointerup');
+  assert.ok(!plus.classList.contains('pressed'), 'plus released on pointerup');
+
+  fireEvent(plus, 'pointerdown');
+  fireEvent(plus, 'pointercancel');
+  assert.ok(!plus.classList.contains('pressed'), 'plus released on pointercancel');
+
+  fireEvent(plus, 'pointerdown');
+  fireEvent(plus, 'pointerleave');
+  assert.ok(!plus.classList.contains('pressed'), 'plus released on pointerleave');
+
+  // --- -1 button ---
+  fireEvent(minus, 'pointerdown');
+  assert.ok(minus.classList.contains('pressed'), 'minus pressed on pointerdown');
+  fireEvent(minus, 'pointerup');
+  assert.ok(!minus.classList.contains('pressed'), 'minus released on pointerup');
+  fireEvent(minus, 'pointerdown');
+  fireEvent(minus, 'pointercancel');
+  assert.ok(!minus.classList.contains('pressed'));
+  fireEvent(minus, 'pointerdown');
+  fireEvent(minus, 'pointerleave');
+  assert.ok(!minus.classList.contains('pressed'));
+
+  // --- rapid repeated taps should not get stuck ---
+  for (let i = 0; i < 10; i++) {
+    fireEvent(plus, 'pointerdown');
+    assert.ok(plus.classList.contains('pressed'), `tap ${i}: pressed`);
+    fireEvent(plus, 'pointerup');
+    assert.ok(!plus.classList.contains('pressed'), `tap ${i}: released`);
+  }
+
+  // --- release events are idempotent (extra pointerup doesn't break) ---
+  fireEvent(plus, 'pointerup');
+  fireEvent(plus, 'pointerleave');
+  assert.ok(!plus.classList.contains('pressed'));
+
+  // --- existing click handlers still send increment messages ---
+  plus.click();
+  assert.deepStrictEqual(sends.at(-1), { type: 'increment', by: 1 });
+  minus.click();
+  assert.deepStrictEqual(sends.at(-1), { type: 'increment', by: -1 });
+
+  dom.window.close();
 });
 
 test('patch with flash state keys updates server state', () => {
