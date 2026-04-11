@@ -71,12 +71,18 @@ function persistState() {
 const app = express();
 app.use(express.static(PUBLIC_DIR));
 app.get('/', (req, res) => res.redirect('/control'));
-app.get('/display', (req, res) =>
-  res.sendFile(path.join(PUBLIC_DIR, 'display.html'))
-);
-app.get('/control', (req, res) =>
-  res.sendFile(path.join(PUBLIC_DIR, 'control.html'))
-);
+
+// HTML routes are served with no-store so a phone can't cling to a stale
+// build. Fonts and anything else under /public still go through the normal
+// static middleware above and can be cached.
+function sendHtml(file) {
+  return (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.sendFile(path.join(PUBLIC_DIR, file));
+  };
+}
+app.get('/display', sendHtml('display.html'));
+app.get('/control', sendHtml('control.html'));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
