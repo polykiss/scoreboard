@@ -390,13 +390,11 @@
     setBtn.addEventListener('click', () => {
       const v = parseInt(setInput.value, 10);
       if (!Number.isFinite(v)) return;
-      if (!confirm(`Set count to ${v}?`)) return;
       send({ type: 'set', value: v });
       setInput.value = '';
     });
 
     resetBtn.addEventListener('click', () => {
-      if (!confirm('Reset count to 0?')) return;
       send({ type: 'reset' });
     });
 
