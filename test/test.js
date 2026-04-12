@@ -1022,7 +1022,7 @@ test('slide direction: newCount > prevCount assigns up direction', () => {
   for (let i = 0; i < slideOuts.length; i++) {
     assert.strictEqual(slideOuts[i].getAttribute('data-dir'), 'up');
   }
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('slide direction: newCount < prevCount assigns down direction', () => {
@@ -1037,7 +1037,7 @@ test('slide direction: newCount < prevCount assigns down direction', () => {
     assert.strictEqual(slideIns[i].getAttribute('data-dir'), 'down',
       'decrement should use down direction');
   }
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('slide: changed slots have two child elements during animation', () => {
@@ -1067,7 +1067,7 @@ test('slide: changed slots have two child elements during animation', () => {
   assert.strictEqual(slideIn.style.display, 'inline-block');
   assert.strictEqual(slideOut.style.display, 'inline-block');
 
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('slide: after animation each slot has exactly one text node', () => {
@@ -1076,7 +1076,7 @@ test('slide: after animation each slot has exactly one text node', () => {
   renderer.applyState({ ...state, count: 100 });
   renderer.applyState({ ...state, count: 101 });
 
-  clock.advance(250); // animation completes
+  clock.advance(125); // animation completes
 
   const digits = countEl.querySelectorAll('.digit');
   for (let i = 0; i < digits.length; i++) {
@@ -1116,7 +1116,7 @@ test('slide: unchanged slots are not re-rendered during transition', () => {
   assert.strictEqual(digitsAfter[0].style.position, '',
     'unchanged slot has no position');
 
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('crossfade: unchanged slots are not re-rendered during transition', () => {
@@ -1156,7 +1156,7 @@ test('slide: opacity is included in keyframes (old→0, new→1)', () => {
   // keyframes include opacity transitions from 0→1 and 1→0).
   assert.strictEqual(slideIn.className, 'slide-in');
   assert.strictEqual(slideOut.className, 'slide-out');
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('slide: changed slot has explicit height and overflow hidden', () => {
@@ -1177,10 +1177,11 @@ test('slide: changed slot has explicit height and overflow hidden', () => {
   assert.strictEqual(digits[0].style.position, '', 'unchanged slot has no position');
   assert.strictEqual(digits[1].style.height, '', 'unchanged slot has no height override');
 
-  clock.advance(250);
-  // After cleanup, height/overflow are cleared.
-  assert.strictEqual(digits[2].style.height, '', 'height cleared after animation');
-  assert.strictEqual(digits[2].style.overflow, '', 'overflow cleared after animation');
+  clock.advance(125);
+  // After cleanup, renderDigits rebuilds all slots — re-query.
+  const cleaned = countEl.querySelectorAll('.digit');
+  assert.strictEqual(cleaned[2].style.height, '', 'height cleared after animation');
+  assert.strictEqual(cleaned[2].style.overflow, '', 'overflow cleared after animation');
 });
 
 test('slide: both inner elements are absolutely positioned', () => {
@@ -1194,7 +1195,7 @@ test('slide: both inner elements are absolutely positioned', () => {
   assert.strictEqual(children.length, 2, 'two child spans');
   assert.strictEqual(children[0].style.position, 'absolute', 'incoming is absolute');
   assert.strictEqual(children[1].style.position, 'absolute', 'outgoing is absolute');
-  clock.advance(250);
+  clock.advance(125);
 });
 
 test('crossfade: both inner elements are absolutely positioned', () => {
@@ -1211,8 +1212,9 @@ test('crossfade: both inner elements are absolutely positioned', () => {
   // Changed slot has explicit height.
   assert.ok(changedSlot.style.height.endsWith('px'), 'crossfade slot has explicit height');
   clock.advance(200);
-  // Cleaned up.
-  assert.strictEqual(changedSlot.style.height, '', 'height cleared');
+  // Cleaned up — renderDigits rebuilds, re-query.
+  const cleanedSlot = countEl.querySelectorAll('.digit')[1];
+  assert.strictEqual(cleanedSlot.style.height, '', 'height cleared');
 });
 
 test('slide only animates changed digit positions', () => {
@@ -1227,7 +1229,106 @@ test('slide only animates changed digit positions', () => {
     'unchanged digit has no slide elements');
   assert.strictEqual(digits[2].querySelectorAll('.slide-in').length, 1,
     'changed digit has slide-in element');
-  clock.advance(250);
+  clock.advance(125);
+});
+
+// ---------------------------------------------------------------------------
+// Transition end-state stability and live style updates
+
+test('slide: slot width is fixed during transition (no character-width pop)', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 10 });
+  renderer.applyState({ ...state, count: 11 }); // 0→1 (narrow "1")
+
+  const changedSlot = countEl.querySelectorAll('.digit')[1];
+  assert.ok(changedSlot.style.width.endsWith('px'),
+    'slot has fixed px width during slide');
+  const widthDuring = changedSlot.style.width;
+
+  clock.advance(125); // complete
+  // After cleanup, slot was rebuilt — re-query. Width may or may not be
+  // set depending on forceMonospacedDigits, but during animation it was fixed.
+  assert.ok(widthDuring !== '', 'width was set during animation');
+});
+
+test('crossfade: slot width is fixed during transition', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'crossfade' };
+  renderer.applyState({ ...state, count: 10 });
+  renderer.applyState({ ...state, count: 11 });
+
+  const changedSlot = countEl.querySelectorAll('.digit')[1];
+  assert.ok(changedSlot.style.width.endsWith('px'),
+    'slot has fixed px width during crossfade');
+  clock.advance(200);
+});
+
+test('slide duration is 125ms', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 });
+  assert.strictEqual(renderer._isTransitioning(), true);
+
+  clock.advance(124);
+  assert.strictEqual(renderer._isTransitioning(), true, 'still active at 124ms');
+  clock.advance(1);
+  assert.strictEqual(renderer._isTransitioning(), false, 'done at 125ms');
+});
+
+test('letterSpacing updates live without a count change', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const base = { ...FLASH_BASE, count: 42, letterSpacing: 0 };
+  renderer.applyState(base);
+  assert.strictEqual(countEl.style.letterSpacing, '0px');
+
+  // Same count, different letterSpacing.
+  renderer.applyState({ ...base, letterSpacing: 20 });
+  assert.strictEqual(countEl.style.letterSpacing, '20px',
+    'letterSpacing updates without count change');
+});
+
+test('fontSize updates live without a count change', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const base = { ...FLASH_BASE, count: 42, fontSize: 400 };
+  renderer.applyState(base);
+  assert.strictEqual(countEl.style.fontSize, '400px');
+
+  renderer.applyState({ ...base, fontSize: 600 });
+  assert.strictEqual(countEl.style.fontSize, '600px');
+});
+
+test('glow updates live without a count change', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const base = { ...FLASH_BASE, count: 42, glow: false };
+  renderer.applyState(base);
+  assert.strictEqual(countEl.style.textShadow, 'none');
+
+  renderer.applyState({ ...base, glow: true, glowDistance: 20, glowIntensity: 50, glowColor: '#ff0000' });
+  assert.ok(countEl.style.textShadow.includes('rgba'), 'glow applied live');
+});
+
+test('tabularNums updates live without a count change', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const base = { ...FLASH_BASE, count: 42, tabularNums: false };
+  renderer.applyState(base);
+  assert.strictEqual(countEl.style.fontVariantNumeric, '');
+
+  renderer.applyState({ ...base, tabularNums: true });
+  assert.strictEqual(countEl.style.fontVariantNumeric, 'tabular-nums');
+});
+
+test('forceMonospacedDigits updates live without a count change', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const base = { ...FLASH_BASE, count: 1234, forceMonospacedDigits: false };
+  renderer.applyState(base);
+  const d0 = countEl.querySelectorAll('.digit')[0];
+  assert.strictEqual(d0.style.width, '', 'no width when off');
+
+  renderer.applyState({ ...base, forceMonospacedDigits: true });
+  const d0After = countEl.querySelectorAll('.digit')[0];
+  assert.ok(d0After.style.width.endsWith('px'), 'width applied live');
 });
 
 // ---------------------------------------------------------------------------

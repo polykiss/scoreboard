@@ -13,7 +13,7 @@
   const SMALL_CYCLES = 3;  // 0.75s total
   const BIG_CYCLES = 10;   // 2.5s total
   const PULSE_MS = 200;
-  const SLIDE_MS = 250;
+  const SLIDE_MS = 125;
 
   function createRenderer(opts) {
     const { document, body, offsetEl, countEl } = opts;
@@ -251,23 +251,11 @@
       return countEl.querySelectorAll('.digit');
     }
 
-    // Cleanup helper: restore every slot to a plain text character.
+    // Cleanup helper: after a crossfade/slide, rebuild all slots via
+    // renderDigits so the resting state is consistent (same DOM shape
+    // whether or not a transition just ran).
     function cleanupSlots(newText) {
-      var slots = countEl.querySelectorAll('.digit');
-      for (var i = 0; i < slots.length; i++) {
-        var s = slots[i];
-        s.textContent = newText[i];
-        s.style.overflow = '';
-        s.style.position = '';
-        s.style.width = '';
-        s.style.height = '';
-        s.style.textAlign = '';
-        s.className = 'digit';
-      }
-      if (latestState) {
-        applyDigitWidths(latestState);
-        applyLeadingZeroFade(latestState);
-      }
+      renderDigits(newText);
     }
 
     // Start a transition from oldText to newText.
@@ -311,9 +299,10 @@
       }
 
       if (style === 'crossfade' || style === 'slide') {
-        // Measure slot height so we can give changed slots explicit
-        // dimensions. This prevents baseline shifts on unchanged siblings.
+        // Measure slot dimensions. Always use fixed-width during transitions
+        // to prevent character-width pops (e.g. narrow "1" vs wide "8").
         measureDigitDimensions(latestState || {});
+        var slotW = measuredDigitWidth;
         var slotH = measuredDigitHeight;
 
         var animSlots = ensureSlots(oldText, newText);
@@ -323,12 +312,17 @@
           var slot = animSlots[ai];
           var oldCh = (ai < oldText.length) ? oldText[ai] : '';
           var newCh = newText[ai];
+          var isDigitChar = (newCh >= '0' && newCh <= '9');
 
           // Give slot explicit dimensions so its size is fixed regardless
           // of what children do. overflow: hidden clips the animation.
           slot.style.position = 'relative';
           slot.style.overflow = 'hidden';
           slot.style.height = slotH + 'px';
+          if (isDigitChar) {
+            slot.style.width = slotW + 'px';
+            slot.style.textAlign = 'center';
+          }
           slot.textContent = '';
 
           // Both children are absolutely positioned so neither affects
@@ -508,6 +502,13 @@
       } else {
         // Clear parent glow; per-digit glow handled by applyLeadingZeroFade.
         countEl.style.textShadow = 'none';
+      }
+
+      // Re-apply digit widths and leading-zero fade to existing DOM
+      // whenever visual style changes, even without a count change.
+      if (displayedText && !transitionActive) {
+        applyDigitWidths(state);
+        applyLeadingZeroFade(state);
       }
 
       // Count handling
