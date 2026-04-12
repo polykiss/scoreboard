@@ -1040,6 +1040,105 @@ test('slide direction: newCount < prevCount assigns down direction', () => {
   clock.advance(250);
 });
 
+test('slide: changed slots have two child elements during animation', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 247 });
+  renderer.applyState({ ...state, count: 248 }); // only last digit changes
+
+  const digits = countEl.querySelectorAll('.digit');
+  // "247" → "248": positions 0,1 unchanged, position 2 changed.
+  // Unchanged slots: one text node, no animation children.
+  assert.strictEqual(digits[0].childNodes.length, 1, 'unchanged slot has one child');
+  assert.strictEqual(digits[0].textContent, '2');
+  assert.strictEqual(digits[0].querySelectorAll('.slide-in').length, 0,
+    'unchanged slot has no slide-in');
+  assert.strictEqual(digits[1].childNodes.length, 1, 'unchanged slot has one child');
+
+  // Changed slot: two span children (slide-in + slide-out).
+  assert.strictEqual(digits[2].querySelectorAll('.slide-in').length, 1);
+  assert.strictEqual(digits[2].querySelectorAll('.slide-out').length, 1);
+  const slideIn = digits[2].querySelector('.slide-in');
+  const slideOut = digits[2].querySelector('.slide-out');
+  assert.strictEqual(slideIn.textContent, '8', 'incoming has new character');
+  assert.strictEqual(slideOut.textContent, '7', 'outgoing has old character');
+
+  // Both have display:inline-block so transforms apply.
+  assert.strictEqual(slideIn.style.display, 'inline-block');
+  assert.strictEqual(slideOut.style.display, 'inline-block');
+
+  clock.advance(250);
+});
+
+test('slide: after animation each slot has exactly one text node', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 100 });
+  renderer.applyState({ ...state, count: 101 });
+
+  clock.advance(250); // animation completes
+
+  const digits = countEl.querySelectorAll('.digit');
+  for (let i = 0; i < digits.length; i++) {
+    assert.strictEqual(digits[i].querySelectorAll('.slide-in').length, 0,
+      `slot ${i}: no slide-in after cleanup`);
+    assert.strictEqual(digits[i].querySelectorAll('.slide-out').length, 0,
+      `slot ${i}: no slide-out after cleanup`);
+    assert.strictEqual(digits[i].style.overflow, '',
+      `slot ${i}: overflow cleared`);
+    assert.strictEqual(digits[i].style.position, '',
+      `slot ${i}: position cleared`);
+  }
+  assert.strictEqual(countEl.textContent, '101');
+});
+
+test('slide: unchanged slots are not re-rendered during transition', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 247 });
+
+  // Grab references to the unchanged digit DOM nodes before transition.
+  const digitsBefore = Array.from(countEl.querySelectorAll('.digit'));
+  const slot0Before = digitsBefore[0];
+  const slot1Before = digitsBefore[1];
+
+  renderer.applyState({ ...state, count: 248 }); // only last digit changes
+
+  const digitsAfter = Array.from(countEl.querySelectorAll('.digit'));
+  // Unchanged slots should be the exact same DOM node (identity check).
+  assert.strictEqual(digitsAfter[0], slot0Before,
+    'unchanged slot 0 is same DOM node');
+  assert.strictEqual(digitsAfter[1], slot1Before,
+    'unchanged slot 1 is same DOM node');
+  // Unchanged slots should NOT have overflow or position styles.
+  assert.strictEqual(digitsAfter[0].style.overflow, '',
+    'unchanged slot has no overflow');
+  assert.strictEqual(digitsAfter[0].style.position, '',
+    'unchanged slot has no position');
+
+  clock.advance(250);
+});
+
+test('crossfade: unchanged slots are not re-rendered during transition', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'crossfade' };
+  renderer.applyState({ ...state, count: 56 });
+
+  const slot0Before = countEl.querySelectorAll('.digit')[0];
+
+  renderer.applyState({ ...state, count: 57 }); // only last digit changes
+
+  const slot0After = countEl.querySelectorAll('.digit')[0];
+  assert.strictEqual(slot0After, slot0Before,
+    'unchanged slot is same DOM node');
+  assert.strictEqual(slot0After.querySelectorAll('.digit-fade-in').length, 0,
+    'unchanged slot has no fade-in child');
+  assert.strictEqual(slot0After.querySelectorAll('.digit-out').length, 0,
+    'unchanged slot has no fade-out child');
+
+  clock.advance(200);
+});
+
 test('slide only animates changed digit positions', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   const state = { ...FLASH_BASE, transitionStyle: 'slide' };

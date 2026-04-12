@@ -97,19 +97,47 @@
       return PULSE_MS;
     }
 
+    // Build a quick-lookup set from the changedPositions array.
+    function toSet(arr) {
+      var s = {};
+      for (var i = 0; i < arr.length; i++) s[arr[i]] = true;
+      return s;
+    }
+
+    // For crossfade/slide: if text lengths match, update changed slots
+    // in-place without rebuilding unchanged spans (prevents reflow).
+    // If lengths differ, we must rebuild all spans first.
+    function ensureSlots(oldText, newText) {
+      if (oldText.length !== newText.length) {
+        renderDigits(newText);
+      }
+      return countEl.querySelectorAll('.digit');
+    }
+
+    // Cleanup helper: restore every slot to a plain text character.
+    function cleanupSlots(newText) {
+      var slots = countEl.querySelectorAll('.digit');
+      for (var i = 0; i < slots.length; i++) {
+        var s = slots[i];
+        s.textContent = newText[i];
+        s.style.overflow = '';
+        s.style.position = '';
+        s.className = 'digit';
+      }
+    }
+
     // Start a transition from oldText to newText.
     function startTransition(oldText, newText, changedPositions, style, direction, onComplete) {
-      renderDigits(newText);
-
       if (style === 'none' || changedPositions.length === 0) {
+        renderDigits(newText);
         onComplete();
         return;
       }
 
-      var digits = countEl.querySelectorAll('.digit');
       var duration = getTransitionDuration(style);
 
       if (style === 'pulse-all') {
+        renderDigits(newText);
         countEl.classList.remove('flash');
         void countEl.offsetWidth;
         countEl.classList.add('flash');
@@ -122,6 +150,8 @@
       }
 
       if (style === 'pulse-changed') {
+        renderDigits(newText);
+        var digits = countEl.querySelectorAll('.digit');
         for (var i = 0; i < changedPositions.length; i++) {
           var pos = changedPositions[i];
           if (digits[pos]) digits[pos].classList.add('pulse');
@@ -137,83 +167,84 @@
       }
 
       if (style === 'crossfade') {
-        // Changed digits: outgoing fades out, incoming fades in, overlapping.
-        var changedSet = {};
-        for (var ci = 0; ci < changedPositions.length; ci++) changedSet[changedPositions[ci]] = true;
-        for (var fi = 0; fi < digits.length; fi++) {
-          if (!changedSet[fi]) continue;
-          var wrapper = digits[fi];
-          var oldChar = (fi < oldText.length) ? oldText[fi] : '';
-          // Create outgoing element (absolute, fading out).
-          var outgoing = document.createElement('span');
-          outgoing.className = 'digit-out';
-          outgoing.textContent = oldChar;
-          // Create incoming element (fading in).
-          var incoming = wrapper;
-          incoming.classList.add('digit-fade-in');
-          // Wrap both in relative container.
-          wrapper.style.position = 'relative';
-          outgoing.style.position = 'absolute';
-          outgoing.style.left = '0';
-          outgoing.style.top = '0';
-          wrapper.appendChild(outgoing);
+        var cfSlots = ensureSlots(oldText, newText);
+        var cfChanged = toSet(changedPositions);
+        for (var fi = 0; fi < cfSlots.length; fi++) {
+          if (!cfChanged[fi]) continue;
+          var slot = cfSlots[fi];
+          var oldCh = (fi < oldText.length) ? oldText[fi] : '';
+          var newCh = newText[fi];
+          // Turn slot into a relative container.
+          slot.style.position = 'relative';
+          slot.textContent = '';
+          // Incoming element (normal flow, determines slot size).
+          var inc = document.createElement('span');
+          inc.className = 'digit-fade-in';
+          inc.style.display = 'inline-block';
+          inc.textContent = newCh;
+          // Outgoing element (absolute, overlays, fading out).
+          var outg = document.createElement('span');
+          outg.className = 'digit-out';
+          outg.style.display = 'inline-block';
+          outg.style.position = 'absolute';
+          outg.style.left = '0';
+          outg.style.top = '0';
+          outg.textContent = oldCh;
+          slot.appendChild(inc);
+          slot.appendChild(outg);
         }
+        displayedText = newText;
         transitionActive = true;
         setTimeoutFn(function () {
           transitionActive = false;
-          // Clean up: remove outgoing elements and classes.
-          var outs = countEl.querySelectorAll('.digit-out');
-          for (var oi = 0; oi < outs.length; oi++) outs[oi].remove();
-          var fins = countEl.querySelectorAll('.digit-fade-in');
-          for (var fj = 0; fj < fins.length; fj++) {
-            fins[fj].classList.remove('digit-fade-in');
-            fins[fj].style.position = '';
-          }
+          cleanupSlots(newText);
           onComplete();
         }, duration);
         return;
       }
 
       if (style === 'slide') {
-        // Direction based on overall count comparison: 'up' or 'down'.
-        var changedSet2 = {};
-        for (var si = 0; si < changedPositions.length; si++) changedSet2[changedPositions[si]] = true;
-        for (var di = 0; di < digits.length; di++) {
-          if (!changedSet2[di]) continue;
-          var slot = digits[di];
-          var oldCh = (di < oldText.length) ? oldText[di] : '';
-          // Set up the slot as an overflow-hidden container.
-          slot.style.overflow = 'hidden';
-          slot.style.position = 'relative';
-          // Inner element for the new digit (slides in).
-          var inner = document.createElement('span');
-          inner.className = 'slide-in';
-          inner.textContent = slot.textContent;
-          inner.setAttribute('data-dir', direction);
-          // Outgoing element (slides out).
-          var out = document.createElement('span');
-          out.className = 'slide-out';
-          out.textContent = oldCh;
-          out.setAttribute('data-dir', direction);
-          out.style.position = 'absolute';
-          out.style.left = '0';
-          out.style.top = '0';
-          // Replace slot's text content with animated elements.
-          slot.textContent = '';
-          slot.appendChild(inner);
-          slot.appendChild(out);
+        var slSlots = ensureSlots(oldText, newText);
+        var slChanged = toSet(changedPositions);
+        for (var di = 0; di < slSlots.length; di++) {
+          if (!slChanged[di]) continue;
+          var sl = slSlots[di];
+          var oldChar = (di < oldText.length) ? oldText[di] : '';
+          var newChar = newText[di];
+          // Turn slot into a clipping container.
+          sl.style.overflow = 'hidden';
+          sl.style.position = 'relative';
+          sl.textContent = '';
+          // Incoming character (normal flow, display:inline-block for transforms).
+          var slideIn = document.createElement('span');
+          slideIn.className = 'slide-in';
+          slideIn.style.display = 'inline-block';
+          slideIn.textContent = newChar;
+          slideIn.setAttribute('data-dir', direction);
+          // Outgoing character (absolute, slides out).
+          var slideOut = document.createElement('span');
+          slideOut.className = 'slide-out';
+          slideOut.style.display = 'inline-block';
+          slideOut.style.position = 'absolute';
+          slideOut.style.left = '0';
+          slideOut.style.top = '0';
+          slideOut.textContent = oldChar;
+          slideOut.setAttribute('data-dir', direction);
+          sl.appendChild(slideIn);
+          sl.appendChild(slideOut);
         }
+        displayedText = newText;
         transitionActive = true;
         setTimeoutFn(function () {
           transitionActive = false;
-          // Clean up: restore digit spans to simple text.
-          renderDigits(newText);
+          cleanupSlots(newText);
           onComplete();
         }, duration);
         return;
       }
 
       // Unrecognized style — instant.
+      renderDigits(newText);
       onComplete();
     }
 
