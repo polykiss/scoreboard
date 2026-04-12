@@ -456,6 +456,32 @@ test('patch with flash state keys updates server state', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Letter spacing
+
+test('letter spacing slider value propagates to rendered letter-spacing CSS', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: 0 });
+  assert.strictEqual(countEl.style.letterSpacing, '0px');
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: 20 });
+  assert.strictEqual(countEl.style.letterSpacing, '20px');
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: -5 });
+  assert.strictEqual(countEl.style.letterSpacing, '-5px');
+});
+
+test('letterSpacing is patchable on the server', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 15 } }));
+  assert.strictEqual(getState().letterSpacing, 15);
+  resetState();
+});
+
+// ---------------------------------------------------------------------------
 // Glow — independent distance and intensity controls
 
 test('default state has separate glowDistance and glowIntensity', () => {

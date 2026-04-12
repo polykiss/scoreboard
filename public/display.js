@@ -121,6 +121,9 @@
       // Font family — dynamically inject an @font-face on first use.
       applyFont(state.selectedFont);
 
+      // Letter spacing
+      countEl.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
+
       // Glow — distance controls blur radius, intensity controls brightness
       // via alpha.  Either at zero effectively disables the glow.
       if (state.glow) {

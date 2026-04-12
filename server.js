@@ -28,6 +28,7 @@ const DEFAULT_STATE = {
   smallFlashInterval: 10,
   bigFlashEnabled: true,
   bigFlashInterval: 100,
+  letterSpacing: 0,
 };
 
 // Whitelist of keys that controllers may update via the `patch` action.
@@ -49,6 +50,7 @@ const PATCH_KEYS = new Set([
   'smallFlashInterval',
   'bigFlashEnabled',
   'bigFlashInterval',
+  'letterSpacing',
 ]);
 
 function listFonts() {

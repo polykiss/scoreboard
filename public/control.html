@@ -303,6 +303,11 @@
     </div>
 
     <div class="field">
+      <label>Letter spacing <span class="value" id="letterSpacingValue"></span></label>
+      <input type="range" id="letterSpacing" min="-10" max="40" step="1">
+    </div>
+
+    <div class="field">
       <label>Horizontal alignment</label>
       <div class="segments">
         <label><input type="radio" name="alignH" value="left"><span>Left</span></label>
@@ -400,6 +405,8 @@
 
     const fontSizeEl    = document.getElementById('fontSize');
     const fontSizeValue = document.getElementById('fontSizeValue');
+    const letterSpacingEl    = document.getElementById('letterSpacing');
+    const letterSpacingValue = document.getElementById('letterSpacingValue');
     const offsetXEl     = document.getElementById('offsetX');
     const offsetXValue  = document.getElementById('offsetXValue');
     const offsetYEl     = document.getElementById('offsetY');
@@ -432,8 +439,8 @@
       el.addEventListener('focus',         start);
       el.addEventListener('blur',          stop);
     }
-    [fontSizeEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl, glowColorEl, setInput,
-     fontSelectEl, smallFlashIntervalEl, bigFlashIntervalEl]
+    [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
+     glowColorEl, setInput, fontSelectEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -452,6 +459,9 @@
 
       if (!interacting.has(fontSizeEl))  fontSizeEl.value  = state.fontSize;
       fontSizeValue.textContent = state.fontSize + 'px';
+
+      if (!interacting.has(letterSpacingEl)) letterSpacingEl.value = state.letterSpacing;
+      letterSpacingValue.textContent = state.letterSpacing + 'px';
 
       if (!interacting.has(offsetXEl))   offsetXEl.value   = state.offsetX;
       offsetXValue.textContent = state.offsetX + 'px';
@@ -573,6 +583,11 @@
       const v = parseInt(fontSizeEl.value, 10);
       fontSizeValue.textContent = v + 'px';
       patch({ fontSize: v });
+    });
+    letterSpacingEl.addEventListener('input', () => {
+      const v = parseInt(letterSpacingEl.value, 10);
+      letterSpacingValue.textContent = v + 'px';
+      patch({ letterSpacing: v });
     });
     offsetXEl.addEventListener('input', () => {
       const v = parseInt(offsetXEl.value, 10);
