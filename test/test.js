@@ -465,6 +465,15 @@ test('default state has separate glowDistance and glowIntensity', () => {
   assert.ok(DEFAULT_STATE.glowIntensity > 0);
 });
 
+test('factory defaults: flashes on, glow on, correct values', () => {
+  assert.strictEqual(DEFAULT_STATE.smallFlashEnabled, true);
+  assert.strictEqual(DEFAULT_STATE.bigFlashEnabled, true);
+  assert.strictEqual(DEFAULT_STATE.glow, true);
+  assert.strictEqual(DEFAULT_STATE.glowColor, '#ffffff');
+  assert.strictEqual(DEFAULT_STATE.glowDistance, 15);
+  assert.strictEqual(DEFAULT_STATE.glowIntensity, 80);
+});
+
 test('glowDistance and glowIntensity are patchable', () => {
   resetState();
   handleMessage(JSON.stringify({

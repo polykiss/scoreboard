@@ -153,7 +153,7 @@
     }
     .reset.holding::before {
       transform: scaleX(1);
-      transition: transform 5s linear;
+      transition: transform 3s linear;
     }
     /* Keep the label above the fill overlay. */
     .reset .reset-label {
@@ -526,7 +526,7 @@
     // Hold-to-confirm reset. Pointer events (not mouse/touch) so desktop
     // and mobile share one code path with no dual-firing. The fill is
     // driven by CSS transition — we just toggle the .holding class.
-    const RESET_HOLD_MS = 5000;
+    const RESET_HOLD_MS = 3000;
     const resetLabelEl = resetBtn.querySelector('.reset-label');
     let resetTimer = null;
     let resetSuccessTimer = null;
