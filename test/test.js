@@ -694,7 +694,7 @@ test('glow intensity zero disables glow visually', () => {
 // ---------------------------------------------------------------------------
 // User defaults and factory reset
 
-test('save-user-defaults writes all non-count, non-userDefaults fields', () => {
+test('save-user-defaults includes count and all settings in snapshot', () => {
   resetState();
   // Set some custom values
   handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 600, glow: false } }));
@@ -705,26 +705,28 @@ test('save-user-defaults writes all non-count, non-userDefaults fields', () => {
   assert.ok(s.userDefaults !== null, 'userDefaults should be set');
   assert.strictEqual(s.userDefaults.fontSize, 600);
   assert.strictEqual(s.userDefaults.glow, false);
-  assert.strictEqual(s.userDefaults.count, undefined, 'count excluded from userDefaults');
+  assert.strictEqual(s.userDefaults.count, 42, 'count included in userDefaults');
   assert.strictEqual(s.userDefaults.userDefaults, undefined, 'userDefaults excluded from userDefaults');
   resetState();
 });
 
-test('reset-to-user-defaults copies userDefaults back into live state', () => {
+test('reset-to-user-defaults restores saved count and settings', () => {
   resetState();
+  handleMessage(JSON.stringify({ type: 'increment', by: 25 }));
   handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 700, letterSpacing: 10 } }));
   handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
 
   // Change state further
   handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 200, letterSpacing: -5 } }));
   handleMessage(JSON.stringify({ type: 'increment', by: 50 }));
+  assert.strictEqual(getState().count, 75, 'count changed after save');
 
   // Reset to user defaults
   handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
   const s = getState();
   assert.strictEqual(s.fontSize, 700, 'fontSize restored from userDefaults');
   assert.strictEqual(s.letterSpacing, 10, 'letterSpacing restored');
-  assert.strictEqual(s.count, 0, 'count reset to 0');
+  assert.strictEqual(s.count, 25, 'count restored to saved value');
   assert.ok(s.userDefaults !== null, 'userDefaults preserved');
   resetState();
 });

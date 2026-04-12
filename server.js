@@ -178,7 +178,7 @@ function handleMessage(raw) {
     case 'save-user-defaults': {
       const snapshot = {};
       for (const key of Object.keys(state)) {
-        if (key !== 'count' && key !== 'userDefaults') {
+        if (key !== 'userDefaults') {
           snapshot[key] = state[key];
         }
       }
@@ -190,8 +190,6 @@ function handleMessage(raw) {
       for (const key of Object.keys(defaults)) {
         if (key !== 'userDefaults') state[key] = defaults[key];
       }
-      // Count is not saved in userDefaults — always reset to 0.
-      state.count = 0;
       break;
     }
     case 'reset-to-factory-defaults': {
