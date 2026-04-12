@@ -30,6 +30,7 @@ const DEFAULT_STATE = {
   bigFlashInterval: 100,
   perTapFlashEnabled: true,
   letterSpacing: 0,
+  userDefaults: null,
 };
 
 // Whitelist of keys that controllers may update via the `patch` action.
@@ -174,6 +175,31 @@ function handleMessage(raw) {
         }
       }
       break;
+    case 'save-user-defaults': {
+      const snapshot = {};
+      for (const key of Object.keys(state)) {
+        if (key !== 'count' && key !== 'userDefaults') {
+          snapshot[key] = state[key];
+        }
+      }
+      state.userDefaults = snapshot;
+      break;
+    }
+    case 'reset-to-user-defaults': {
+      const defaults = state.userDefaults || DEFAULT_STATE;
+      for (const key of Object.keys(defaults)) {
+        if (key !== 'userDefaults') state[key] = defaults[key];
+      }
+      // Count is not saved in userDefaults — always reset to 0.
+      state.count = 0;
+      break;
+    }
+    case 'reset-to-factory-defaults': {
+      const saved = state.userDefaults;
+      Object.assign(state, { ...DEFAULT_STATE });
+      state.userDefaults = saved;
+      break;
+    }
     default:
       return;
   }

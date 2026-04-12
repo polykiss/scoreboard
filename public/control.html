@@ -256,6 +256,51 @@
       padding: 4px;
     }
 
+    /* ---------- preset section ---------- */
+
+    .preset-section {
+      margin-top: 24px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .preset-heading {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .hold-btn {
+      display: block;
+      width: 100%;
+      font-size: 16px;
+      padding: 14px;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    .hold-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.1);
+      transform: scaleX(0);
+      transform-origin: left center;
+      pointer-events: none;
+    }
+    .hold-btn.holding::before {
+      transform: scaleX(1);
+      transition: transform 3s linear;
+    }
+    .hold-btn .hold-label {
+      position: relative;
+      z-index: 1;
+    }
+    .hold-btn.success {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
     select,
     .field input[type="number"] {
       width: 100%;
@@ -385,6 +430,13 @@
       <input type="number" id="bigFlashInterval" min="1" step="1">
     </div>
   </details>
+
+  <div class="preset-section">
+    <div class="preset-heading">Preset</div>
+    <button class="hold-btn" id="saveDefaultsBtn"><span class="hold-label">Save current as default</span></button>
+    <button class="hold-btn" id="resetUserBtn"><span class="hold-label">Reset to my defaults</span></button>
+    <button class="hold-btn" id="resetFactoryBtn"><span class="hold-label">Reset to factory defaults</span></button>
+  </div>
 
   <script>
     // Resolution presets drive slider bounds and "default" font size.
@@ -584,6 +636,62 @@
     resetBtn.addEventListener('pointerup',     cancelResetHold);
     resetBtn.addEventListener('pointercancel', cancelResetHold);
     resetBtn.addEventListener('pointerleave',  cancelResetHold);
+
+    // --- preset hold-to-confirm buttons ---
+    function setupHoldButton(btn, actionType, defaultLabel, successLabel) {
+      const labelEl = btn.querySelector('.hold-label');
+      let holdTimer = null;
+      let successTimer = null;
+
+      function startHold() {
+        if (holdTimer) return;
+        if (successTimer) {
+          clearTimeout(successTimer);
+          successTimer = null;
+          btn.classList.remove('success');
+        }
+        btn.classList.add('holding');
+        labelEl.textContent = 'Hold…';
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          btn.classList.remove('holding');
+          send({ type: actionType });
+          btn.classList.add('success');
+          labelEl.textContent = successLabel;
+          successTimer = setTimeout(() => {
+            successTimer = null;
+            btn.classList.remove('success');
+            labelEl.textContent = defaultLabel;
+          }, 500);
+        }, RESET_HOLD_MS);
+      }
+
+      function cancelHold() {
+        if (!holdTimer) return;
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        btn.classList.remove('holding');
+        labelEl.textContent = defaultLabel;
+      }
+
+      btn.addEventListener('pointerdown',   startHold);
+      btn.addEventListener('pointerup',     cancelHold);
+      btn.addEventListener('pointercancel', cancelHold);
+      btn.addEventListener('pointerleave',  cancelHold);
+    }
+
+    setupHoldButton(
+      document.getElementById('saveDefaultsBtn'),
+      'save-user-defaults', 'Save current as default', 'Saved ✓'
+    );
+    setupHoldButton(
+      document.getElementById('resetUserBtn'),
+      'reset-to-user-defaults', 'Reset to my defaults', 'Reset ✓'
+    );
+    setupHoldButton(
+      document.getElementById('resetFactoryBtn'),
+      'reset-to-factory-defaults', 'Reset to factory defaults', 'Reset ✓'
+    );
 
     // --- setup controls ---
     fontSizeEl.addEventListener('input', () => {

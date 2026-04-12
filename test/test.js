@@ -691,6 +691,85 @@ test('glow intensity zero disables glow visually', () => {
   assert.ok(countEl.style.textShadow.includes(',0)'), 'alpha should be 0');
 });
 
+// ---------------------------------------------------------------------------
+// User defaults and factory reset
+
+test('save-user-defaults writes all non-count, non-userDefaults fields', () => {
+  resetState();
+  // Set some custom values
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 600, glow: false } }));
+  handleMessage(JSON.stringify({ type: 'increment', by: 42 }));
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+
+  const s = getState();
+  assert.ok(s.userDefaults !== null, 'userDefaults should be set');
+  assert.strictEqual(s.userDefaults.fontSize, 600);
+  assert.strictEqual(s.userDefaults.glow, false);
+  assert.strictEqual(s.userDefaults.count, undefined, 'count excluded from userDefaults');
+  assert.strictEqual(s.userDefaults.userDefaults, undefined, 'userDefaults excluded from userDefaults');
+  resetState();
+});
+
+test('reset-to-user-defaults copies userDefaults back into live state', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 700, letterSpacing: 10 } }));
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+
+  // Change state further
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 200, letterSpacing: -5 } }));
+  handleMessage(JSON.stringify({ type: 'increment', by: 50 }));
+
+  // Reset to user defaults
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+  const s = getState();
+  assert.strictEqual(s.fontSize, 700, 'fontSize restored from userDefaults');
+  assert.strictEqual(s.letterSpacing, 10, 'letterSpacing restored');
+  assert.strictEqual(s.count, 0, 'count reset to 0');
+  assert.ok(s.userDefaults !== null, 'userDefaults preserved');
+  resetState();
+});
+
+test('reset-to-user-defaults with null userDefaults falls back to factory reset', () => {
+  resetState();
+  assert.strictEqual(getState().userDefaults, null, 'starts null');
+
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 999 } }));
+  handleMessage(JSON.stringify({ type: 'increment', by: 10 }));
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+
+  const s = getState();
+  assert.strictEqual(s.fontSize, DEFAULT_STATE.fontSize, 'falls back to factory default');
+  assert.strictEqual(s.count, 0, 'count reset to 0');
+  resetState();
+});
+
+test('reset-to-factory-defaults resets all state but preserves userDefaults', () => {
+  resetState();
+  // Save some user defaults first
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 800 } }));
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+
+  // Change state further
+  handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 300, glow: false } }));
+  handleMessage(JSON.stringify({ type: 'increment', by: 99 }));
+
+  // Factory reset
+  handleMessage(JSON.stringify({ type: 'reset-to-factory-defaults' }));
+  const s = getState();
+  assert.strictEqual(s.fontSize, DEFAULT_STATE.fontSize, 'fontSize back to factory');
+  assert.strictEqual(s.glow, DEFAULT_STATE.glow, 'glow back to factory');
+  assert.strictEqual(s.count, 0, 'count back to 0');
+  assert.ok(s.userDefaults !== null, 'userDefaults preserved');
+  assert.strictEqual(s.userDefaults.fontSize, 800, 'saved preset intact');
+  resetState();
+});
+
+test('default state includes userDefaults: null', () => {
+  assert.strictEqual(DEFAULT_STATE.userDefaults, null);
+  assert.strictEqual(DEFAULT_STATE.letterSpacing, 0);
+  assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, true);
+});
+
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {
   // Simulate loading old state.json with only glowIntensity (the old field).
   const oldState = {
