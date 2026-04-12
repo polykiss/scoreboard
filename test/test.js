@@ -94,7 +94,7 @@ function createFakeClock() {
 // Shared base state for Feature 2 tests — both flash kinds enabled.
 const FLASH_BASE = {
   ...DEFAULT_STATE,
-  flashOnUpdate: false, // keep the pulse animation out of assertions
+  transitionStyle: 'none', // keep the pulse animation out of assertions
   smallFlashEnabled: true,
   smallFlashInterval: 10,
   bigFlashEnabled: true,
@@ -338,7 +338,7 @@ test('milestone fires after animation ends when new increment lands on interval'
 
 const PER_TAP_BASE = {
   ...DEFAULT_STATE,
-  flashOnUpdate: false,
+  transitionStyle: 'none',
   perTapFlashEnabled: true,
   smallFlashEnabled: false,
   bigFlashEnabled: false,
@@ -812,6 +812,90 @@ test('default state includes userDefaults: null', () => {
   assert.strictEqual(DEFAULT_STATE.userDefaults, null);
   assert.strictEqual(DEFAULT_STATE.letterSpacing, 0);
   assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, true);
+});
+
+// ---------------------------------------------------------------------------
+// transitionStyle and flashOnUpdate migration
+
+test('transitionStyle in DEFAULT_STATE with default pulse-changed', () => {
+  assert.strictEqual(DEFAULT_STATE.transitionStyle, 'pulse-changed');
+  assert.strictEqual(DEFAULT_STATE.flashOnUpdate, undefined,
+    'flashOnUpdate should not exist in DEFAULT_STATE');
+});
+
+test('transitionStyle is in PATCH_KEYS', () => {
+  const { PATCH_KEYS } = require('../server');
+  assert.ok(PATCH_KEYS.has('transitionStyle'));
+  assert.ok(!PATCH_KEYS.has('flashOnUpdate'));
+});
+
+test('flashOnUpdate migration: true → transitionStyle pulse-all', () => {
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify({ count: 5, flashOnUpdate: true }));
+    const loaded = loadState();
+    assert.strictEqual(loaded.transitionStyle, 'pulse-all');
+    assert.strictEqual(loaded.flashOnUpdate, undefined, 'flashOnUpdate removed');
+  } finally {
+    if (backup !== null) fs.writeFileSync(statePath, backup);
+    else fs.unlinkSync(statePath);
+  }
+});
+
+test('flashOnUpdate migration: false → transitionStyle none', () => {
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify({ count: 0, flashOnUpdate: false }));
+    const loaded = loadState();
+    assert.strictEqual(loaded.transitionStyle, 'none');
+    assert.strictEqual(loaded.flashOnUpdate, undefined, 'flashOnUpdate removed');
+  } finally {
+    if (backup !== null) fs.writeFileSync(statePath, backup);
+    else fs.unlinkSync(statePath);
+  }
+});
+
+test('flashOnUpdate inside userDefaults is also migrated', () => {
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify({
+      count: 0,
+      flashOnUpdate: true,
+      userDefaults: { fontSize: 500, flashOnUpdate: false },
+    }));
+    const loaded = loadState();
+    assert.strictEqual(loaded.transitionStyle, 'pulse-all');
+    assert.strictEqual(loaded.flashOnUpdate, undefined);
+    assert.strictEqual(loaded.userDefaults.transitionStyle, 'none');
+    assert.strictEqual(loaded.userDefaults.flashOnUpdate, undefined);
+  } finally {
+    if (backup !== null) fs.writeFileSync(statePath, backup);
+    else fs.unlinkSync(statePath);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Letter spacing range validation
+
+test('letter spacing range accepts -20 and +100', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -20 } }));
+  assert.strictEqual(getState().letterSpacing, -20);
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 100 } }));
+  assert.strictEqual(getState().letterSpacing, 100);
+  resetState();
+});
+
+test('letter spacing range clamps values outside bounds', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -50 } }));
+  assert.strictEqual(getState().letterSpacing, -20, 'clamped to -20');
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 200 } }));
+  assert.strictEqual(getState().letterSpacing, 100, 'clamped to 100');
+  resetState();
 });
 
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {

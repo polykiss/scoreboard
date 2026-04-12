@@ -349,7 +349,7 @@
 
     <div class="field">
       <label>Letter spacing <span class="value" id="letterSpacingValue"></span></label>
-      <input type="range" id="letterSpacing" min="-10" max="40" step="1">
+      <input type="range" id="letterSpacing" min="-20" max="100" step="1">
     </div>
 
     <div class="field">
@@ -380,9 +380,12 @@
       <input type="range" id="offsetY">
     </div>
 
-    <div class="field toggle-row">
-      <label>Flash on update</label>
-      <input type="checkbox" id="flashOnUpdate">
+    <div class="field">
+      <label>Transition style</label>
+      <select id="transitionStyle">
+        <option value="none">None</option>
+        <option value="pulse-all">Pulse (all)</option>
+      </select>
     </div>
 
     <div class="field toggle-row">
@@ -468,7 +471,7 @@
     const offsetXValue  = document.getElementById('offsetXValue');
     const offsetYEl     = document.getElementById('offsetY');
     const offsetYValue  = document.getElementById('offsetYValue');
-    const flashEl       = document.getElementById('flashOnUpdate');
+    const transitionStyleEl = document.getElementById('transitionStyle');
     const glowEl        = document.getElementById('glow');
     const glowColorEl   = document.getElementById('glowColor');
     const glowDistanceEl     = document.getElementById('glowDistance');
@@ -498,7 +501,8 @@
       el.addEventListener('blur',          stop);
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
-     glowColorEl, setInput, fontSelectEl, smallFlashIntervalEl, bigFlashIntervalEl]
+     glowColorEl, setInput, fontSelectEl, transitionStyleEl,
+     smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -542,7 +546,11 @@
         if (hasOption) fontSelectEl.value = state.selectedFont;
       }
 
-      flashEl.checked = !!state.flashOnUpdate;
+      if (!interacting.has(transitionStyleEl) && state.transitionStyle) {
+        const hasOption = Array.from(transitionStyleEl.options)
+          .some((o) => o.value === state.transitionStyle);
+        if (hasOption) transitionStyleEl.value = state.transitionStyle;
+      }
       glowEl.checked  = !!state.glow;
 
       perTapFlashEnabledEl.checked = !!state.perTapFlashEnabled;
@@ -714,7 +722,8 @@
       offsetYValue.textContent = v + 'px';
       patch({ offsetY: v });
     });
-    flashEl.addEventListener('change',    () => patch({ flashOnUpdate: flashEl.checked }));
+    transitionStyleEl.addEventListener('change',
+      () => patch({ transitionStyle: transitionStyleEl.value }));
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
     perTapFlashEnabledEl.addEventListener('change',
       () => patch({ perTapFlashEnabled: perTapFlashEnabledEl.checked }));

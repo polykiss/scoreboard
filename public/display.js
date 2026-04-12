@@ -193,7 +193,7 @@
       if (!animationLocked && !milestoneStarting) {
         const changed = prev !== null && prev !== newCount;
         writeCount(newCount);
-        if (changed && state.flashOnUpdate) {
+        if (changed && state.transitionStyle === 'pulse-all') {
           // Restart the pulse animation by removing + forcing reflow + re-adding.
           countEl.classList.remove('flash');
           void countEl.offsetWidth;

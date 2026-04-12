@@ -17,7 +17,7 @@ const DEFAULT_STATE = {
   alignV: 'center',
   offsetX: 0,
   offsetY: 0,
-  flashOnUpdate: true,
+  transitionStyle: 'pulse-changed',
   glow: true,
   glowColor: '#ffffff',
   glowDistance: 15,
@@ -41,7 +41,7 @@ const PATCH_KEYS = new Set([
   'alignV',
   'offsetX',
   'offsetY',
-  'flashOnUpdate',
+  'transitionStyle',
   'glow',
   'glowColor',
   'glowDistance',
@@ -89,6 +89,19 @@ function loadState() {
       if (parsed.glowIntensity !== undefined && parsed.glowDistance === undefined) {
         loaded.glowDistance = parsed.glowIntensity;
         loaded.glowIntensity = DEFAULT_STATE.glowIntensity;
+      }
+
+      // Migration: flashOnUpdate → transitionStyle.
+      if ('flashOnUpdate' in parsed && !('transitionStyle' in parsed)) {
+        loaded.transitionStyle = parsed.flashOnUpdate ? 'pulse-all' : 'none';
+      }
+      delete loaded.flashOnUpdate;
+      if (loaded.userDefaults && 'flashOnUpdate' in loaded.userDefaults) {
+        if (!('transitionStyle' in loaded.userDefaults)) {
+          loaded.userDefaults.transitionStyle =
+            loaded.userDefaults.flashOnUpdate ? 'pulse-all' : 'none';
+        }
+        delete loaded.userDefaults.flashOnUpdate;
       }
     }
   } catch (err) {
@@ -179,6 +192,10 @@ function handleMessage(raw) {
       if (msg.patch && typeof msg.patch === 'object') {
         for (const [k, v] of Object.entries(msg.patch)) {
           if (PATCH_KEYS.has(k)) state[k] = v;
+        }
+        // Clamp letterSpacing to valid range.
+        if (msg.patch.letterSpacing !== undefined) {
+          state.letterSpacing = Math.max(-20, Math.min(100, Number(state.letterSpacing) || 0));
         }
       }
       break;
