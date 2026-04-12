@@ -434,6 +434,23 @@ test('per-tap flash disabled when perTapFlashEnabled is false', () => {
   assert.ok(!document.body.classList.contains('inverted'));
 });
 
+test('per-tap flash fires with full DEFAULT_STATE (milestones enabled)', () => {
+  // Matches real-world scenario: all defaults active, non-milestone increment
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...DEFAULT_STATE, count: 0 }); // initial state
+  renderer.applyState({ ...DEFAULT_STATE, count: 1 }); // +1, no milestone
+
+  assert.ok(document.body.classList.contains('inverted'),
+    'per-tap should fire on non-milestone increment with defaults');
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+  assert.strictEqual(renderer._isLocked(), false, 'display not locked');
+  assert.strictEqual(countEl.textContent, '1', 'count updates normally');
+
+  clock.advance(250);
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'per-tap done');
+  assert.ok(!document.body.classList.contains('inverted'), 'inverted removed');
+});
+
 // ---------------------------------------------------------------------------
 // Controller — press-state feedback on +1/-1
 
