@@ -582,6 +582,31 @@ test('letterSpacing is patchable on the server', () => {
   resetState();
 });
 
+test('letter spacing server patch renders on display', () => {
+  // Full pipeline: patch server → get state → render on display
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 25 } }));
+  const serverState = getState();
+  assert.strictEqual(serverState.letterSpacing, 25, 'server state updated');
+
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+  renderer.applyState(serverState);
+  assert.strictEqual(countEl.style.letterSpacing, '25px',
+    'display should render letter-spacing from server state');
+  resetState();
+});
+
+test('display.js is served with no-cache headers', withServer(async (port) => {
+  const res = await fetch(`http://127.0.0.1:${port}/display.js`);
+  assert.strictEqual(res.status, 200);
+  const cc = res.headers.get('cache-control');
+  assert.ok(cc && cc.includes('no-store'),
+    `display.js should have no-store header, got: ${cc}`);
+}));
+
 // ---------------------------------------------------------------------------
 // Glow — independent distance and intensity controls
 

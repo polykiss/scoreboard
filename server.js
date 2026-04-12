@@ -115,12 +115,19 @@ function persistState() {
 }
 
 const app = express();
-app.use(express.static(PUBLIC_DIR));
+// Static files: fonts can cache freely, but JS must not be stale.
+app.use(express.static(PUBLIC_DIR, {
+  setHeaders(res, filePath) {
+    if (/\.js$/i.test(filePath)) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  },
+}));
 app.get('/', (req, res) => res.redirect('/control'));
 
 // HTML routes are served with no-store so a phone can't cling to a stale
-// build. Fonts and anything else under /public still go through the normal
-// static middleware above and can be cached.
+// build. Fonts still go through the normal static middleware above and
+// can be cached.
 function sendHtml(file) {
   return (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
