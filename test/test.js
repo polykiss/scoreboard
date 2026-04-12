@@ -11,6 +11,7 @@ const {
   resetState,
   listFonts,
   resolveSelectedFont,
+  loadState,
   DEFAULT_STATE,
 } = require('../server');
 const { createRenderer } = require('../public/display.js');
@@ -452,4 +453,133 @@ test('patch with flash state keys updates server state', () => {
   assert.strictEqual(s.bigFlashEnabled, true);
   assert.strictEqual(s.bigFlashInterval, 250);
   resetState();
+});
+
+// ---------------------------------------------------------------------------
+// Glow — independent distance and intensity controls
+
+test('default state has separate glowDistance and glowIntensity', () => {
+  assert.strictEqual(typeof DEFAULT_STATE.glowDistance, 'number');
+  assert.strictEqual(typeof DEFAULT_STATE.glowIntensity, 'number');
+  assert.ok(DEFAULT_STATE.glowDistance > 0);
+  assert.ok(DEFAULT_STATE.glowIntensity > 0);
+});
+
+test('glowDistance and glowIntensity are patchable', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: { glowDistance: 50, glowIntensity: 30 },
+  }));
+  const s = getState();
+  assert.strictEqual(s.glowDistance, 50);
+  assert.strictEqual(s.glowIntensity, 30);
+  resetState();
+});
+
+test('changing distance does not affect intensity in rendered text-shadow', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+
+  const base = { ...DEFAULT_STATE, glow: true, glowColor: '#ff0000', glowIntensity: 60 };
+
+  renderer.applyState({ ...base, count: 0, glowDistance: 10 });
+  const shadow1 = countEl.style.textShadow;
+
+  renderer.applyState({ ...base, count: 0, glowDistance: 50 });
+  const shadow2 = countEl.style.textShadow;
+
+  // Blur radii should differ.
+  assert.ok(shadow1.includes('10px'), 'shadow1 should use 10px blur');
+  assert.ok(shadow2.includes('50px'), 'shadow2 should use 50px blur');
+
+  // Alpha (brightness) should be the same in both — extract rgba portions.
+  const alphas1 = shadow1.match(/rgba\([^)]+\)/g);
+  const alphas2 = shadow2.match(/rgba\([^)]+\)/g);
+  assert.ok(alphas1 && alphas2, 'both should use rgba');
+  // The rgba strings should be identical since intensity didn't change.
+  assert.strictEqual(alphas1[0], alphas2[0], 'rgba color+alpha must match');
+});
+
+test('changing intensity does not affect distance in rendered text-shadow', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+
+  const base = { ...DEFAULT_STATE, glow: true, glowColor: '#00ff00', glowDistance: 30 };
+
+  renderer.applyState({ ...base, count: 0, glowIntensity: 20 });
+  const shadow1 = countEl.style.textShadow;
+
+  renderer.applyState({ ...base, count: 0, glowIntensity: 90 });
+  const shadow2 = countEl.style.textShadow;
+
+  // Both should have the same blur radii (30px and 60px).
+  assert.ok(shadow1.includes('30px'), 'shadow1 should use 30px');
+  assert.ok(shadow2.includes('30px'), 'shadow2 should use 30px');
+
+  // But alpha values should differ.
+  const alpha1 = shadow1.match(/rgba\([^)]+\)/g);
+  const alpha2 = shadow2.match(/rgba\([^)]+\)/g);
+  assert.notStrictEqual(alpha1[0], alpha2[0], 'alpha should differ when intensity differs');
+});
+
+test('glow distance zero disables glow visually', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+
+  renderer.applyState({
+    ...DEFAULT_STATE, glow: true, glowColor: '#ffffff',
+    glowDistance: 0, glowIntensity: 80, count: 0,
+  });
+  // With distance=0, blur is 0px — effectively invisible.
+  assert.ok(countEl.style.textShadow.includes('0px'), 'blur should be 0px');
+});
+
+test('glow intensity zero disables glow visually', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+
+  renderer.applyState({
+    ...DEFAULT_STATE, glow: true, glowColor: '#ffffff',
+    glowDistance: 30, glowIntensity: 0, count: 0,
+  });
+  // With intensity=0, alpha is 0 — fully transparent.
+  assert.ok(countEl.style.textShadow.includes(',0)'), 'alpha should be 0');
+});
+
+test('migration: old glowIntensity (no glowDistance) maps to distance', () => {
+  // Simulate loading old state.json with only glowIntensity (the old field).
+  const oldState = {
+    count: 42,
+    glow: true,
+    glowColor: '#ff0000',
+    glowIntensity: 35,
+    // no glowDistance — this is the pre-split format
+  };
+
+  // Write a temporary state.json and reload.
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify(oldState));
+    const loaded = loadState();
+    assert.strictEqual(loaded.glowDistance, 35,
+      'old glowIntensity should migrate to glowDistance');
+    assert.strictEqual(loaded.glowIntensity, DEFAULT_STATE.glowIntensity,
+      'glowIntensity should reset to the default');
+  } finally {
+    if (backup !== null) {
+      fs.writeFileSync(statePath, backup);
+    } else {
+      fs.unlinkSync(statePath);
+    }
+  }
 });

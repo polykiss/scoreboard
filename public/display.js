@@ -121,12 +121,18 @@
       // Font family — dynamically inject an @font-face on first use.
       applyFont(state.selectedFont);
 
-      // Glow
+      // Glow — distance controls blur radius, intensity controls brightness
+      // via alpha.  Either at zero effectively disables the glow.
       if (state.glow) {
-        const c = state.glowColor;
-        const i = Number(state.glowIntensity) || 0;
+        const d = Number(state.glowDistance) || 0;
+        const a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
+        const hex = state.glowColor || '#ffffff';
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        const rgba = `rgba(${r},${g},${b},${a})`;
         countEl.style.textShadow =
-          `0 0 ${i}px ${c}, 0 0 ${i * 2}px ${c}`;
+          `0 0 ${d}px ${rgba}, 0 0 ${d * 2}px ${rgba}`;
       } else {
         countEl.style.textShadow = 'none';
       }

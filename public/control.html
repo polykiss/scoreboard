@@ -346,6 +346,11 @@
     </div>
 
     <div class="field">
+      <label>Glow distance <span class="value" id="glowDistanceValue"></span></label>
+      <input type="range" id="glowDistance" min="0" max="100">
+    </div>
+
+    <div class="field">
       <label>Glow intensity <span class="value" id="glowIntensityValue"></span></label>
       <input type="range" id="glowIntensity" min="0" max="100">
     </div>
@@ -402,6 +407,8 @@
     const flashEl       = document.getElementById('flashOnUpdate');
     const glowEl        = document.getElementById('glow');
     const glowColorEl   = document.getElementById('glowColor');
+    const glowDistanceEl     = document.getElementById('glowDistance');
+    const glowDistanceValue  = document.getElementById('glowDistanceValue');
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
@@ -425,7 +432,7 @@
       el.addEventListener('focus',         start);
       el.addEventListener('blur',          stop);
     }
-    [fontSizeEl, offsetXEl, offsetYEl, glowIntensityEl, glowColorEl, setInput,
+    [fontSizeEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl, glowColorEl, setInput,
      fontSelectEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
@@ -451,6 +458,9 @@
 
       if (!interacting.has(offsetYEl))   offsetYEl.value   = state.offsetY;
       offsetYValue.textContent = state.offsetY + 'px';
+
+      if (!interacting.has(glowDistanceEl)) glowDistanceEl.value = state.glowDistance;
+      glowDistanceValue.textContent = state.glowDistance;
 
       if (!interacting.has(glowIntensityEl)) glowIntensityEl.value = state.glowIntensity;
       glowIntensityValue.textContent = state.glowIntensity;
@@ -590,6 +600,11 @@
     });
     glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
     glowColorEl.addEventListener('input', () => patch({ glowColor: glowColorEl.value }));
+    glowDistanceEl.addEventListener('input', () => {
+      const v = parseInt(glowDistanceEl.value, 10);
+      glowDistanceValue.textContent = v;
+      patch({ glowDistance: v });
+    });
     glowIntensityEl.addEventListener('input', () => {
       const v = parseInt(glowIntensityEl.value, 10);
       glowIntensityValue.textContent = v;

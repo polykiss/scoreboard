@@ -20,7 +20,8 @@ const DEFAULT_STATE = {
   flashOnUpdate: true,
   glow: false,
   glowColor: '#ffffff',
-  glowIntensity: 20,
+  glowDistance: 20,
+  glowIntensity: 80,
   resolutionPreset: '1080p',
   selectedFont: 'jd_led5',
   smallFlashEnabled: false,
@@ -40,6 +41,7 @@ const PATCH_KEYS = new Set([
   'flashOnUpdate',
   'glow',
   'glowColor',
+  'glowDistance',
   'glowIntensity',
   'resolutionPreset',
   'selectedFont',
@@ -75,6 +77,14 @@ function loadState() {
       // Merge over defaults so newly added fields get sensible values
       // when loading an older state.json.
       loaded = { ...DEFAULT_STATE, ...parsed };
+
+      // Migration: old state had a single glowIntensity that controlled
+      // blur radius.  Map it to glowDistance and set a sensible default
+      // intensity.  Detect by the absence of glowDistance in the raw JSON.
+      if (parsed.glowIntensity !== undefined && parsed.glowDistance === undefined) {
+        loaded.glowDistance = parsed.glowIntensity;
+        loaded.glowIntensity = DEFAULT_STATE.glowIntensity;
+      }
     }
   } catch (err) {
     console.error('Failed to load state.json, using defaults:', err.message);
