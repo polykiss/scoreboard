@@ -1139,6 +1139,82 @@ test('crossfade: unchanged slots are not re-rendered during transition', () => {
   clock.advance(200);
 });
 
+test('slide: opacity is included in keyframes (old→0, new→1)', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 }); // slide up
+
+  const slideIn = countEl.querySelector('.slide-in');
+  const slideOut = countEl.querySelector('.slide-out');
+  assert.ok(slideIn, 'slide-in element exists');
+  assert.ok(slideOut, 'slide-out element exists');
+  // Both should be absolutely positioned inside the slot.
+  assert.strictEqual(slideIn.style.position, 'absolute');
+  assert.strictEqual(slideOut.style.position, 'absolute');
+  // The CSS animation handles opacity (tested via class presence — the
+  // keyframes include opacity transitions from 0→1 and 1→0).
+  assert.strictEqual(slideIn.className, 'slide-in');
+  assert.strictEqual(slideOut.className, 'slide-out');
+  clock.advance(250);
+});
+
+test('slide: changed slot has explicit height and overflow hidden', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 247 });
+  renderer.applyState({ ...state, count: 248 }); // last digit changes
+
+  const digits = countEl.querySelectorAll('.digit');
+  // Changed slot (position 2) should have explicit height and overflow.
+  assert.ok(digits[2].style.height.endsWith('px'), 'changed slot has explicit px height');
+  assert.strictEqual(digits[2].style.overflow, 'hidden', 'changed slot clips');
+  assert.strictEqual(digits[2].style.position, 'relative', 'changed slot is relative');
+
+  // Unchanged slots should NOT have height/overflow overrides.
+  assert.strictEqual(digits[0].style.height, '', 'unchanged slot has no height override');
+  assert.strictEqual(digits[0].style.overflow, '', 'unchanged slot has no overflow');
+  assert.strictEqual(digits[0].style.position, '', 'unchanged slot has no position');
+  assert.strictEqual(digits[1].style.height, '', 'unchanged slot has no height override');
+
+  clock.advance(250);
+  // After cleanup, height/overflow are cleared.
+  assert.strictEqual(digits[2].style.height, '', 'height cleared after animation');
+  assert.strictEqual(digits[2].style.overflow, '', 'overflow cleared after animation');
+});
+
+test('slide: both inner elements are absolutely positioned', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 10 });
+  renderer.applyState({ ...state, count: 11 }); // last digit changes
+
+  const changedSlot = countEl.querySelectorAll('.digit')[1]; // pos 1: 0→1
+  const children = changedSlot.querySelectorAll('span');
+  assert.strictEqual(children.length, 2, 'two child spans');
+  assert.strictEqual(children[0].style.position, 'absolute', 'incoming is absolute');
+  assert.strictEqual(children[1].style.position, 'absolute', 'outgoing is absolute');
+  clock.advance(250);
+});
+
+test('crossfade: both inner elements are absolutely positioned', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'crossfade' };
+  renderer.applyState({ ...state, count: 10 });
+  renderer.applyState({ ...state, count: 11 });
+
+  const changedSlot = countEl.querySelectorAll('.digit')[1];
+  const children = changedSlot.querySelectorAll('span');
+  assert.strictEqual(children.length, 2, 'two child spans');
+  assert.strictEqual(children[0].style.position, 'absolute', 'incoming is absolute');
+  assert.strictEqual(children[1].style.position, 'absolute', 'outgoing is absolute');
+  // Changed slot has explicit height.
+  assert.ok(changedSlot.style.height.endsWith('px'), 'crossfade slot has explicit height');
+  clock.advance(200);
+  // Cleaned up.
+  assert.strictEqual(changedSlot.style.height, '', 'height cleared');
+});
+
 test('slide only animates changed digit positions', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   const state = { ...FLASH_BASE, transitionStyle: 'slide' };

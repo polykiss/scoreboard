@@ -60,15 +60,15 @@
       currentFontFamily = name;
     }
 
-    // Digit width measurement for forceMonospacedDigits.
+    // Digit measurement for forceMonospacedDigits and slot containment.
     var measuredDigitWidth = 0;
+    var measuredDigitHeight = 0;
     var measuredFontKey = '';
 
-    function measureDigitWidth(state) {
+    function measureDigitDimensions(state) {
       var fontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '') +
         '|' + (state.letterSpacing || 0);
-      if (fontKey === measuredFontKey && measuredDigitWidth > 0) return measuredDigitWidth;
-      // Measure the widest digit (0-9) by rendering in a hidden probe.
+      if (fontKey === measuredFontKey && measuredDigitWidth > 0) return;
       var probe = document.createElement('span');
       probe.style.position = 'absolute';
       probe.style.visibility = 'hidden';
@@ -84,29 +84,31 @@
       if (state.tabularNums) probe.style.fontVariantNumeric = 'tabular-nums';
       countEl.appendChild(probe);
       var maxW = 0;
+      var maxH = 0;
       for (var d = 0; d <= 9; d++) {
         probe.textContent = String(d);
         var w = probe.offsetWidth;
+        var h = probe.offsetHeight;
         if (w > maxW) maxW = w;
+        if (h > maxH) maxH = h;
       }
       countEl.removeChild(probe);
-      // In environments where offsetWidth returns 0 (jsdom), use fontSize
-      // as a reasonable approximation of digit width.
+      // In jsdom offsetWidth/Height return 0; use fontSize as fallback.
       if (maxW === 0) maxW = state.fontSize || 400;
+      if (maxH === 0) maxH = state.fontSize || 400;
       measuredDigitWidth = maxW;
+      measuredDigitHeight = maxH;
       measuredFontKey = fontKey;
-      return maxW;
     }
 
     function applyDigitWidths(state) {
       if (!state.forceMonospacedDigits) return;
-      var w = measureDigitWidth(state);
+      measureDigitDimensions(state);
       var digits = countEl.querySelectorAll('.digit');
       for (var i = 0; i < digits.length; i++) {
         var ch = digits[i].textContent;
-        // Only force width on digit characters, not commas.
         if (ch >= '0' && ch <= '9') {
-          digits[i].style.width = w + 'px';
+          digits[i].style.width = measuredDigitWidth + 'px';
           digits[i].style.textAlign = 'center';
         }
       }
@@ -258,6 +260,7 @@
         s.style.overflow = '';
         s.style.position = '';
         s.style.width = '';
+        s.style.height = '';
         s.style.textAlign = '';
         s.className = 'digit';
       }
@@ -307,72 +310,55 @@
         return;
       }
 
-      if (style === 'crossfade') {
-        var cfSlots = ensureSlots(oldText, newText);
-        var cfChanged = toSet(changedPositions);
-        for (var fi = 0; fi < cfSlots.length; fi++) {
-          if (!cfChanged[fi]) continue;
-          var slot = cfSlots[fi];
-          var oldCh = (fi < oldText.length) ? oldText[fi] : '';
-          var newCh = newText[fi];
-          // Turn slot into a relative container.
+      if (style === 'crossfade' || style === 'slide') {
+        // Measure slot height so we can give changed slots explicit
+        // dimensions. This prevents baseline shifts on unchanged siblings.
+        measureDigitDimensions(latestState || {});
+        var slotH = measuredDigitHeight;
+
+        var animSlots = ensureSlots(oldText, newText);
+        var animChanged = toSet(changedPositions);
+        for (var ai = 0; ai < animSlots.length; ai++) {
+          if (!animChanged[ai]) continue;
+          var slot = animSlots[ai];
+          var oldCh = (ai < oldText.length) ? oldText[ai] : '';
+          var newCh = newText[ai];
+
+          // Give slot explicit dimensions so its size is fixed regardless
+          // of what children do. overflow: hidden clips the animation.
           slot.style.position = 'relative';
+          slot.style.overflow = 'hidden';
+          slot.style.height = slotH + 'px';
           slot.textContent = '';
-          // Incoming element (normal flow, determines slot size).
+
+          // Both children are absolutely positioned so neither affects
+          // the slot's layout box.
           var inc = document.createElement('span');
-          inc.className = 'digit-fade-in';
           inc.style.display = 'inline-block';
+          inc.style.position = 'absolute';
+          inc.style.left = '0';
+          inc.style.top = '0';
           inc.textContent = newCh;
-          // Outgoing element (absolute, overlays, fading out).
+
           var outg = document.createElement('span');
-          outg.className = 'digit-out';
           outg.style.display = 'inline-block';
           outg.style.position = 'absolute';
           outg.style.left = '0';
           outg.style.top = '0';
           outg.textContent = oldCh;
+
+          if (style === 'crossfade') {
+            inc.className = 'digit-fade-in';
+            outg.className = 'digit-out';
+          } else {
+            inc.className = 'slide-in';
+            inc.setAttribute('data-dir', direction);
+            outg.className = 'slide-out';
+            outg.setAttribute('data-dir', direction);
+          }
+
           slot.appendChild(inc);
           slot.appendChild(outg);
-        }
-        displayedText = newText;
-        transitionActive = true;
-        setTimeoutFn(function () {
-          transitionActive = false;
-          cleanupSlots(newText);
-          onComplete();
-        }, duration);
-        return;
-      }
-
-      if (style === 'slide') {
-        var slSlots = ensureSlots(oldText, newText);
-        var slChanged = toSet(changedPositions);
-        for (var di = 0; di < slSlots.length; di++) {
-          if (!slChanged[di]) continue;
-          var sl = slSlots[di];
-          var oldChar = (di < oldText.length) ? oldText[di] : '';
-          var newChar = newText[di];
-          // Turn slot into a clipping container.
-          sl.style.overflow = 'hidden';
-          sl.style.position = 'relative';
-          sl.textContent = '';
-          // Incoming character (normal flow, display:inline-block for transforms).
-          var slideIn = document.createElement('span');
-          slideIn.className = 'slide-in';
-          slideIn.style.display = 'inline-block';
-          slideIn.textContent = newChar;
-          slideIn.setAttribute('data-dir', direction);
-          // Outgoing character (absolute, slides out).
-          var slideOut = document.createElement('span');
-          slideOut.className = 'slide-out';
-          slideOut.style.display = 'inline-block';
-          slideOut.style.position = 'absolute';
-          slideOut.style.left = '0';
-          slideOut.style.top = '0';
-          slideOut.textContent = oldChar;
-          slideOut.setAttribute('data-dir', direction);
-          sl.appendChild(slideIn);
-          sl.appendChild(slideOut);
         }
         displayedText = newText;
         transitionActive = true;

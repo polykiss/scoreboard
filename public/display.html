@@ -35,6 +35,7 @@
 
     .digit {
       display: inline-block;
+      vertical-align: top;
     }
 
     @keyframes flash-pulse {
@@ -71,22 +72,22 @@
       animation: fade-in 200ms ease-out forwards;
     }
 
-    /* Slide: digits slide in/out vertically, clipped by overflow. */
+    /* Slide: digits slide in/out vertically with opacity, clipped by overflow. */
     @keyframes slide-up-in {
-      from { transform: translateY(100%); }
-      to   { transform: translateY(0); }
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
     }
     @keyframes slide-up-out {
-      from { transform: translateY(0); }
-      to   { transform: translateY(-100%); }
+      from { transform: translateY(0);    opacity: 1; }
+      to   { transform: translateY(-100%); opacity: 0; }
     }
     @keyframes slide-down-in {
-      from { transform: translateY(-100%); }
-      to   { transform: translateY(0); }
+      from { transform: translateY(-100%); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
     }
     @keyframes slide-down-out {
-      from { transform: translateY(0); }
-      to   { transform: translateY(100%); }
+      from { transform: translateY(0);    opacity: 1; }
+      to   { transform: translateY(100%); opacity: 0; }
     }
     .slide-in[data-dir="up"]   { animation: slide-up-in 250ms ease-out; }
     .slide-out[data-dir="up"]  { animation: slide-up-out 250ms ease-out forwards; }
