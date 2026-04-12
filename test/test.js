@@ -1288,6 +1288,37 @@ test('transition detects changed positions with padding (9→10 minDigits=4)', (
   clock.advance(200);
 });
 
+// ---------------------------------------------------------------------------
+// useCommas toggle
+
+test('useCommas false renders 1000 without comma', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 1000, useCommas: false });
+  assert.strictEqual(countEl.textContent, '1000');
+});
+
+test('useCommas true renders 1000 with comma', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 1000, useCommas: true });
+  assert.strictEqual(countEl.textContent, '1,000');
+});
+
+test('toggling useCommas does not trigger animation', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  // Start with commas, count 1000.
+  renderer.applyState({ ...FLASH_BASE, count: 1000, useCommas: true,
+    transitionStyle: 'pulse-changed' });
+  assert.strictEqual(countEl.textContent, '1,000');
+
+  // Toggle useCommas off — same count, format changes instantly.
+  renderer.applyState({ ...FLASH_BASE, count: 1000, useCommas: false,
+    transitionStyle: 'pulse-changed' });
+  assert.strictEqual(countEl.textContent, '1000');
+  // No transition should be active (format change, not count change).
+  assert.strictEqual(renderer._isTransitioning(), false,
+    'format-only change should not animate');
+});
+
 test('forceMonospacedDigits false does not set digit widths', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: false });

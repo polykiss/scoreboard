@@ -34,6 +34,7 @@ const DEFAULT_STATE = {
   forceMonospacedDigits: true,
   minDigits: 0,
   fadeLeadingZeros: 30,
+  useCommas: true,
   userDefaults: null,
 };
 
@@ -62,6 +63,7 @@ const PATCH_KEYS = new Set([
   'forceMonospacedDigits',
   'minDigits',
   'fadeLeadingZeros',
+  'useCommas',
 ]);
 
 function listFonts() {

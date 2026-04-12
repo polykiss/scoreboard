@@ -436,6 +436,11 @@
     </div>
 
     <div class="field toggle-row">
+      <label>Use commas</label>
+      <input type="checkbox" id="useCommas">
+    </div>
+
+    <div class="field toggle-row">
       <label>Per-tap flash</label>
       <input type="checkbox" id="perTapFlashEnabled">
     </div>
@@ -510,6 +515,7 @@
     const minDigitsValue          = document.getElementById('minDigitsValue');
     const fadeLeadingZerosEl      = document.getElementById('fadeLeadingZeros');
     const fadeLeadingZerosValue   = document.getElementById('fadeLeadingZerosValue');
+    const useCommasEl             = document.getElementById('useCommas');
     const tabularNumsEl          = document.getElementById('tabularNums');
     const forceMonospacedDigitsEl = document.getElementById('forceMonospacedDigits');
     const perTapFlashEnabledEl = document.getElementById('perTapFlashEnabled');
@@ -590,6 +596,7 @@
       minDigitsValue.textContent = state.minDigits;
       if (!interacting.has(fadeLeadingZerosEl)) fadeLeadingZerosEl.value = state.fadeLeadingZeros;
       fadeLeadingZerosValue.textContent = state.fadeLeadingZeros + '%';
+      useCommasEl.checked = state.useCommas !== false;
       tabularNumsEl.checked = !!state.tabularNums;
       forceMonospacedDigitsEl.checked = !!state.forceMonospacedDigits;
       perTapFlashEnabledEl.checked = !!state.perTapFlashEnabled;
@@ -776,6 +783,8 @@
       fadeLeadingZerosValue.textContent = v + '%';
       patch({ fadeLeadingZeros: v });
     });
+    useCommasEl.addEventListener('change',
+      () => patch({ useCommas: useCommasEl.checked }));
     tabularNumsEl.addEventListener('change',
       () => patch({ tabularNums: tabularNumsEl.checked }));
     forceMonospacedDigitsEl.addEventListener('change',

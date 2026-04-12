@@ -113,21 +113,15 @@
     }
 
     function formatCount(n, state) {
-      var str = Number(n).toLocaleString('en-US');
-      var minDigits = (state && Number(state.minDigits)) || 0;
-      if (minDigits <= 0) return str;
-      // Count actual digit characters (exclude commas).
-      var digitCount = 0;
-      for (var i = 0; i < str.length; i++) {
-        if (str[i] >= '0' && str[i] <= '9') digitCount++;
-      }
-      var needed = minDigits - digitCount;
-      if (needed <= 0) return str;
-      // Prepend leading zeros. With commas, we need to reformat:
-      // pad the raw number string then apply locale formatting.
+      var useCommas = !state || state.useCommas !== false;
       var raw = String(Math.abs(Number(n)));
-      raw = new Array(needed + 1).join('0') + raw;
-      // Re-insert commas by formatting the padded string manually.
+      var minDigits = (state && Number(state.minDigits)) || 0;
+      // Pad with leading zeros if needed.
+      if (minDigits > 0 && raw.length < minDigits) {
+        raw = new Array(minDigits - raw.length + 1).join('0') + raw;
+      }
+      if (!useCommas) return raw;
+      // Insert commas every 3 digits from the right.
       var result = '';
       var dCount = 0;
       for (var j = raw.length - 1; j >= 0; j--) {
@@ -541,10 +535,20 @@
       }
 
       // First applyState or same count — just render (no transition).
+      // Also handles format-only changes (e.g. useCommas toggled) — update
+      // instantly without triggering a transition animation.
       if (lastCount === null || newCount === lastCount) {
         lastCount = newCount;
         var text = formatCount(newCount, state);
         if (text !== displayedText) renderDigits(text);
+        return;
+      }
+
+      // If the count changed but the formatted text is identical to what's
+      // shown (shouldn't happen in practice), skip the transition.
+      var candidateText = formatCount(newCount, state);
+      if (candidateText === displayedText) {
+        lastCount = newCount;
         return;
       }
 
