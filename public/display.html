@@ -55,6 +55,44 @@
       animation: digit-pulse 200ms ease-out;
     }
 
+    /* Crossfade: outgoing fades out, incoming fades in. */
+    @keyframes fade-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .digit-out {
+      animation: fade-out 200ms ease-out forwards;
+    }
+    .digit-fade-in {
+      animation: fade-in 200ms ease-out forwards;
+    }
+
+    /* Slide: digits slide in/out vertically, clipped by overflow. */
+    @keyframes slide-up-in {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes slide-up-out {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-100%); }
+    }
+    @keyframes slide-down-in {
+      from { transform: translateY(-100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes slide-down-out {
+      from { transform: translateY(0); }
+      to   { transform: translateY(100%); }
+    }
+    .slide-in[data-dir="up"]   { animation: slide-up-in 250ms ease-out; }
+    .slide-out[data-dir="up"]  { animation: slide-up-out 250ms ease-out forwards; }
+    .slide-in[data-dir="down"] { animation: slide-down-in 250ms ease-out; }
+    .slide-out[data-dir="down"]{ animation: slide-down-out 250ms ease-out forwards; }
+
     /* Milestone flash: invert the full viewport. The class goes on <body>
        so the white fills the whole screen rather than the count's box.
        Glow (text-shadow) layers on top and stays visible. */

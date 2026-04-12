@@ -985,6 +985,76 @@ test('flash sequencing: milestone flash starts after transition completes', () =
   assert.strictEqual(renderer._isLocked(), false, 'flash done');
 });
 
+// ---------------------------------------------------------------------------
+// Crossfade and slide transitions
+
+test('crossfade creates outgoing elements for changed digits', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'crossfade' };
+  renderer.applyState({ ...state, count: 12 });
+  renderer.applyState({ ...state, count: 13 }); // last digit changes
+
+  // During crossfade, changed digit should have an outgoing element.
+  const outs = countEl.querySelectorAll('.digit-out');
+  assert.ok(outs.length > 0, 'outgoing elements created');
+  const fadeIns = countEl.querySelectorAll('.digit-fade-in');
+  assert.ok(fadeIns.length > 0, 'fade-in class applied to incoming');
+
+  // After transition completes, outgoing cleaned up.
+  clock.advance(200);
+  assert.strictEqual(countEl.querySelectorAll('.digit-out').length, 0, 'outgoing removed');
+  assert.strictEqual(countEl.querySelectorAll('.digit-fade-in').length, 0, 'fade-in removed');
+});
+
+test('slide direction: newCount > prevCount assigns up direction', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 }); // increment → up
+
+  const slideIns = countEl.querySelectorAll('.slide-in');
+  assert.ok(slideIns.length > 0, 'slide-in elements created');
+  for (let i = 0; i < slideIns.length; i++) {
+    assert.strictEqual(slideIns[i].getAttribute('data-dir'), 'up',
+      'increment should use up direction');
+  }
+  const slideOuts = countEl.querySelectorAll('.slide-out');
+  for (let i = 0; i < slideOuts.length; i++) {
+    assert.strictEqual(slideOuts[i].getAttribute('data-dir'), 'up');
+  }
+  clock.advance(250);
+});
+
+test('slide direction: newCount < prevCount assigns down direction', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 6 });
+  renderer.applyState({ ...state, count: 5 }); // decrement → down
+
+  const slideIns = countEl.querySelectorAll('.slide-in');
+  assert.ok(slideIns.length > 0);
+  for (let i = 0; i < slideIns.length; i++) {
+    assert.strictEqual(slideIns[i].getAttribute('data-dir'), 'down',
+      'decrement should use down direction');
+  }
+  clock.advance(250);
+});
+
+test('slide only animates changed digit positions', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 100 });
+  renderer.applyState({ ...state, count: 101 }); // only last digit changes
+
+  const digits = countEl.querySelectorAll('.digit');
+  // "100" → "101": position 2 changes (0→1)
+  assert.strictEqual(digits[0].querySelectorAll('.slide-in').length, 0,
+    'unchanged digit has no slide elements');
+  assert.strictEqual(digits[2].querySelectorAll('.slide-in').length, 1,
+    'changed digit has slide-in element');
+  clock.advance(250);
+});
+
 test('letter spacing range clamps values outside bounds', () => {
   resetState();
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -50 } }));

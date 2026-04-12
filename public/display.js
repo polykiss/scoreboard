@@ -97,8 +97,8 @@
       return PULSE_MS;
     }
 
-    // Start a transition from displayedText to newText.
-    function startTransition(newText, changedPositions, style, onComplete) {
+    // Start a transition from oldText to newText.
+    function startTransition(oldText, newText, changedPositions, style, direction, onComplete) {
       renderDigits(newText);
 
       if (style === 'none' || changedPositions.length === 0) {
@@ -136,8 +136,84 @@
         return;
       }
 
-      // Crossfade and slide will be added in the next commit.
-      // For now, unrecognized styles fall through to instant.
+      if (style === 'crossfade') {
+        // Changed digits: outgoing fades out, incoming fades in, overlapping.
+        var changedSet = {};
+        for (var ci = 0; ci < changedPositions.length; ci++) changedSet[changedPositions[ci]] = true;
+        for (var fi = 0; fi < digits.length; fi++) {
+          if (!changedSet[fi]) continue;
+          var wrapper = digits[fi];
+          var oldChar = (fi < oldText.length) ? oldText[fi] : '';
+          // Create outgoing element (absolute, fading out).
+          var outgoing = document.createElement('span');
+          outgoing.className = 'digit-out';
+          outgoing.textContent = oldChar;
+          // Create incoming element (fading in).
+          var incoming = wrapper;
+          incoming.classList.add('digit-fade-in');
+          // Wrap both in relative container.
+          wrapper.style.position = 'relative';
+          outgoing.style.position = 'absolute';
+          outgoing.style.left = '0';
+          outgoing.style.top = '0';
+          wrapper.appendChild(outgoing);
+        }
+        transitionActive = true;
+        setTimeoutFn(function () {
+          transitionActive = false;
+          // Clean up: remove outgoing elements and classes.
+          var outs = countEl.querySelectorAll('.digit-out');
+          for (var oi = 0; oi < outs.length; oi++) outs[oi].remove();
+          var fins = countEl.querySelectorAll('.digit-fade-in');
+          for (var fj = 0; fj < fins.length; fj++) {
+            fins[fj].classList.remove('digit-fade-in');
+            fins[fj].style.position = '';
+          }
+          onComplete();
+        }, duration);
+        return;
+      }
+
+      if (style === 'slide') {
+        // Direction based on overall count comparison: 'up' or 'down'.
+        var changedSet2 = {};
+        for (var si = 0; si < changedPositions.length; si++) changedSet2[changedPositions[si]] = true;
+        for (var di = 0; di < digits.length; di++) {
+          if (!changedSet2[di]) continue;
+          var slot = digits[di];
+          var oldCh = (di < oldText.length) ? oldText[di] : '';
+          // Set up the slot as an overflow-hidden container.
+          slot.style.overflow = 'hidden';
+          slot.style.position = 'relative';
+          // Inner element for the new digit (slides in).
+          var inner = document.createElement('span');
+          inner.className = 'slide-in';
+          inner.textContent = slot.textContent;
+          inner.setAttribute('data-dir', direction);
+          // Outgoing element (slides out).
+          var out = document.createElement('span');
+          out.className = 'slide-out';
+          out.textContent = oldCh;
+          out.setAttribute('data-dir', direction);
+          out.style.position = 'absolute';
+          out.style.left = '0';
+          out.style.top = '0';
+          // Replace slot's text content with animated elements.
+          slot.textContent = '';
+          slot.appendChild(inner);
+          slot.appendChild(out);
+        }
+        transitionActive = true;
+        setTimeoutFn(function () {
+          transitionActive = false;
+          // Clean up: restore digit spans to simple text.
+          renderDigits(newText);
+          onComplete();
+        }, duration);
+        return;
+      }
+
+      // Unrecognized style — instant.
       onComplete();
     }
 
@@ -224,13 +300,15 @@
 
       var changedPositions = findChangedPositions(oldText, newText);
       var style = state.transitionStyle || 'none';
+      // Slide direction based on overall count comparison.
+      var direction = (newCount > (preCount || 0)) ? 'up' : 'down';
 
       if (style === 'none') {
         renderDigits(newText);
         lastCount = newCount;
         checkFlashAfterTransition(state, newCount, preCount);
       } else {
-        startTransition(newText, changedPositions, style, function () {
+        startTransition(oldText, newText, changedPositions, style, direction, function () {
           lastCount = newCount;
           checkFlashAfterTransition(latestState || state, newCount, preCount);
         });
