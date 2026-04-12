@@ -33,6 +33,10 @@
       /* font-size and text-shadow set from state */
     }
 
+    .digit {
+      display: inline-block;
+    }
+
     @keyframes flash-pulse {
       0%   { transform: scale(1); }
       40%  { transform: scale(1.05); }
@@ -40,6 +44,15 @@
     }
     #count.flash {
       animation: flash-pulse 200ms ease-out;
+    }
+
+    @keyframes digit-pulse {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .digit.pulse {
+      animation: digit-pulse 200ms ease-out;
     }
 
     /* Milestone flash: invert the full viewport. The class goes on <body>

@@ -12,6 +12,8 @@
   const FLASH_HALF_MS = 125;
   const SMALL_CYCLES = 3;  // 0.75s total
   const BIG_CYCLES = 10;   // 2.5s total
+  const PULSE_MS = 200;
+  const SLIDE_MS = 250;
 
   function createRenderer(opts) {
     const { document, body, offsetEl, countEl } = opts;
@@ -22,28 +24,25 @@
     const loadedFonts = new Set();
     let currentFontFamily = null;
 
-    // lastCount: previous observed count (for strict-delta detection).
-    // latestCount: most recent known count — used to catch up after a lock.
-    let lastCount = null;
-    let latestCount = null;
+    // State tracking
+    let lastCount = null;       // Count before current transition (for delta)
+    let latestCount = null;     // Most recent count from server
+    let latestState = null;     // Most recent full state from server
+    let displayedText = '';     // Formatted text currently in the DOM
 
-    // When locked, the display number is frozen on a milestone value and
-    // the inverted class is being toggled on a schedule. Layout updates
-    // still pass through; only the count text is suppressed.
-    let animationLocked = false;
+    // Animation state machine
+    let animationLocked = false;  // Flash playing (milestone)
     let animationStep = 0;
     let animationTotalSteps = 0;
+    let transitionActive = false; // Non-instant transition playing
+    let afterFlashCatchUp = false; // Suppress per-tap on catch-up after flash
 
-    // Per-tap flash: single invert cycle (125ms on, 125ms off = 250ms).
-    // Does not lock the display — count updates flow normally.
     let perTapRunning = false;
 
     function ensureFont(name) {
       if (loadedFonts.has(name)) return;
       loadedFonts.add(name);
       const style = document.createElement('style');
-      // Use the basename as the CSS family — quoted so spaces/punctuation
-      // survive. Backslash-escape any single quotes just in case.
       const safeName = String(name).replace(/'/g, "\\'");
       const url = `/fonts/${encodeURIComponent(name)}.ttf`;
       style.textContent =
@@ -65,22 +64,131 @@
       return Number(n).toLocaleString('en-US');
     }
 
-    function writeCount(n) {
-      countEl.textContent = formatCount(n);
+    // Render count as per-digit <span class="digit"> elements.
+    function renderDigits(text) {
+      countEl.innerHTML = '';
+      for (var i = 0; i < text.length; i++) {
+        var span = document.createElement('span');
+        span.className = 'digit';
+        span.textContent = text[i];
+        countEl.appendChild(span);
+      }
+      displayedText = text;
     }
 
-    // Drives the invert/revert schedule for the currently-running flash.
-    // animationStep counts half-cycles: even = invert on, odd = invert off.
-    // The class goes on <body> so the whole viewport flashes white, not
-    // just the count element's box. When step >= totalSteps we clean up
-    // and atomically jump to the latest-known count.
+    // Compare two formatted strings and return indices of changed positions.
+    // If lengths differ (e.g. 999→1000), all positions are "changed".
+    function findChangedPositions(oldText, newText) {
+      if (oldText.length !== newText.length) {
+        var all = [];
+        for (var i = 0; i < newText.length; i++) all.push(i);
+        return all;
+      }
+      var changed = [];
+      for (var i = 0; i < newText.length; i++) {
+        if (oldText[i] !== newText[i]) changed.push(i);
+      }
+      return changed;
+    }
+
+    function getTransitionDuration(style) {
+      if (style === 'slide') return SLIDE_MS;
+      if (style === 'none') return 0;
+      return PULSE_MS;
+    }
+
+    // Start a transition from displayedText to newText.
+    function startTransition(newText, changedPositions, style, onComplete) {
+      renderDigits(newText);
+
+      if (style === 'none' || changedPositions.length === 0) {
+        onComplete();
+        return;
+      }
+
+      var digits = countEl.querySelectorAll('.digit');
+      var duration = getTransitionDuration(style);
+
+      if (style === 'pulse-all') {
+        countEl.classList.remove('flash');
+        void countEl.offsetWidth;
+        countEl.classList.add('flash');
+        transitionActive = true;
+        setTimeoutFn(function () {
+          transitionActive = false;
+          onComplete();
+        }, duration);
+        return;
+      }
+
+      if (style === 'pulse-changed') {
+        for (var i = 0; i < changedPositions.length; i++) {
+          var pos = changedPositions[i];
+          if (digits[pos]) digits[pos].classList.add('pulse');
+        }
+        transitionActive = true;
+        setTimeoutFn(function () {
+          transitionActive = false;
+          var ds = countEl.querySelectorAll('.digit.pulse');
+          for (var j = 0; j < ds.length; j++) ds[j].classList.remove('pulse');
+          onComplete();
+        }, duration);
+        return;
+      }
+
+      // Crossfade and slide will be added in the next commit.
+      // For now, unrecognized styles fall through to instant.
+      onComplete();
+    }
+
+    function checkMilestone(state, newCount) {
+      var bigEnabled = state.bigFlashEnabled
+        && Number(state.bigFlashInterval) > 0
+        && newCount % Number(state.bigFlashInterval) === 0;
+      if (bigEnabled) return BIG_CYCLES;
+      var smallEnabled = state.smallFlashEnabled
+        && Number(state.smallFlashInterval) > 0
+        && newCount % Number(state.smallFlashInterval) === 0;
+      if (smallEnabled) return SMALL_CYCLES;
+      return 0;
+    }
+
+    // Check flash eligibility after a transition completes.
+    function checkFlashAfterTransition(state, displayedCount, preCount) {
+      var increased = preCount !== null && displayedCount > preCount;
+
+      if (increased) {
+        var cycles = checkMilestone(state, displayedCount);
+        if (cycles > 0) {
+          startMilestoneFlash(cycles);
+          return; // Queue deferred to after flash ends
+        }
+        if (!afterFlashCatchUp && state.perTapFlashEnabled && !perTapRunning) {
+          startPerTapFlash();
+        }
+      }
+      afterFlashCatchUp = false;
+      resolveQueue(state);
+    }
+
+    // If there's a pending count different from what's displayed, start
+    // a new transition to the latest value.
+    function resolveQueue(state) {
+      var st = latestState || state;
+      if (latestCount !== null && latestCount !== lastCount) {
+        doCountUpdate(st);
+      }
+    }
+
+    // Milestone flash animation — toggles body.inverted on a schedule.
     function advanceAnimation() {
       if (animationStep >= animationTotalSteps) {
         body.classList.remove('inverted');
         animationLocked = false;
         animationStep = 0;
         animationTotalSteps = 0;
-        if (latestCount !== null) writeCount(latestCount);
+        afterFlashCatchUp = true;
+        if (latestState) resolveQueue(latestState);
         return;
       }
       if (animationStep % 2 === 0) body.classList.add('inverted');
@@ -89,12 +197,10 @@
       setTimeoutFn(advanceAnimation, FLASH_HALF_MS);
     }
 
-    function startFlash(milestoneValue, cycles) {
+    function startMilestoneFlash(cycles) {
       animationLocked = true;
       animationStep = 0;
       animationTotalSteps = cycles * 2;
-      // Lock the displayed value to the milestone that triggered this.
-      writeCount(milestoneValue);
       advanceAnimation();
     }
 
@@ -109,112 +215,89 @@
       }, FLASH_HALF_MS);
     }
 
-    function checkMilestone(state, newCount) {
-      const bigEnabled = state.bigFlashEnabled
-        && Number(state.bigFlashInterval) > 0
-        && newCount % Number(state.bigFlashInterval) === 0;
-      if (bigEnabled) return BIG_CYCLES;
-      const smallEnabled = state.smallFlashEnabled
-        && Number(state.smallFlashInterval) > 0
-        && newCount % Number(state.smallFlashInterval) === 0;
-      if (smallEnabled) return SMALL_CYCLES;
-      return 0;
+    // Main count update: run transition then check flash.
+    function doCountUpdate(state) {
+      var newCount = state.count;
+      var newText = formatCount(newCount);
+      var oldText = displayedText;
+      var preCount = lastCount;
+
+      var changedPositions = findChangedPositions(oldText, newText);
+      var style = state.transitionStyle || 'none';
+
+      if (style === 'none') {
+        renderDigits(newText);
+        lastCount = newCount;
+        checkFlashAfterTransition(state, newCount, preCount);
+      } else {
+        startTransition(newText, changedPositions, style, function () {
+          lastCount = newCount;
+          checkFlashAfterTransition(latestState || state, newCount, preCount);
+        });
+      }
     }
 
     function applyState(state) {
-      // Alignment (flex on body)
+      // Layout updates always apply (even during animation).
       body.style.justifyContent = H_MAP[state.alignH] || 'center';
       body.style.alignItems = V_MAP[state.alignV] || 'center';
-
-      // Offset (translate on wrapper, kept separate from the flash scale)
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
-
-      // Font size
       countEl.style.fontSize = state.fontSize + 'px';
-
-      // Font family — dynamically inject an @font-face on first use.
       applyFont(state.selectedFont);
-
-      // Letter spacing
       countEl.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
 
-      // Glow — distance controls blur radius, intensity controls brightness
-      // via alpha.  Either at zero effectively disables the glow.
       if (state.glow) {
-        const d = Number(state.glowDistance) || 0;
-        const a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
-        const hex = state.glowColor || '#ffffff';
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        const rgba = `rgba(${r},${g},${b},${a})`;
+        var d = Number(state.glowDistance) || 0;
+        var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
+        var hex = state.glowColor || '#ffffff';
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        var rgba = 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
         countEl.style.textShadow =
-          `0 0 ${d}px ${rgba}, 0 0 ${d * 2}px ${rgba}`;
+          '0 0 ' + d + 'px ' + rgba + ', 0 0 ' + (d * 2) + 'px ' + rgba;
       } else {
         countEl.style.textShadow = 'none';
       }
 
-      // Count handling.
-      //
-      // Milestone fires only on a strict increment (no reset, no decrement,
-      // no no-op). If an animation is already running, new counts update
-      // internal tracking but do NOT touch the DOM — the display stays
-      // pinned to the original milestone value. When the animation ends,
-      // advanceAnimation() will atomically jump to `latestCount`.
-      const newCount = state.count;
-      const prev = lastCount;
+      // Count handling
+      var newCount = state.count;
+      latestCount = newCount;
+      latestState = state;
 
-      let milestoneStarting = false;
-      if (!animationLocked && prev !== null && newCount > prev) {
-        const cycles = checkMilestone(state, newCount);
-        if (cycles > 0) {
-          milestoneStarting = true;
-          lastCount = newCount;
-          latestCount = newCount;
-          startFlash(newCount, cycles);
-        }
+      // If flash or transition is active, queue the update.
+      if (animationLocked || transitionActive) {
+        return;
       }
 
-      if (!milestoneStarting) {
-        // Track the latest known count regardless of lock — used for
-        // catch-up after the animation ends.
-        latestCount = newCount;
+      // First applyState or same count — just render (no transition).
+      if (lastCount === null || newCount === lastCount) {
         lastCount = newCount;
+        var text = formatCount(newCount);
+        if (text !== displayedText) renderDigits(text);
+        return;
       }
 
-      // Per-tap flash: fires on strict increment, skips if milestone is
-      // starting or already running, skips if another per-tap is in progress.
-      if (!milestoneStarting && !animationLocked && !perTapRunning
-          && state.perTapFlashEnabled && prev !== null && newCount > prev) {
-        startPerTapFlash();
-      }
-
-      if (!animationLocked && !milestoneStarting) {
-        const changed = prev !== null && prev !== newCount;
-        writeCount(newCount);
-        if (changed && state.transitionStyle === 'pulse-all') {
-          // Restart the pulse animation by removing + forcing reflow + re-adding.
-          countEl.classList.remove('flash');
-          void countEl.offsetWidth;
-          countEl.classList.add('flash');
-        }
-      }
+      // Count changed — run the full transition → flash → queue pipeline.
+      doCountUpdate(state);
     }
 
     return {
-      applyState,
+      applyState: applyState,
       // test hooks
-      _getLoadedFonts() { return Array.from(loadedFonts); },
-      _getCurrentFontFamily() { return currentFontFamily; },
-      _isLocked() { return animationLocked; },
-      _getLastCount() { return lastCount; },
-      _getLatestCount() { return latestCount; },
-      _isPerTapRunning() { return perTapRunning; },
+      _getLoadedFonts: function () { return Array.from(loadedFonts); },
+      _getCurrentFontFamily: function () { return currentFontFamily; },
+      _isLocked: function () { return animationLocked; },
+      _getLastCount: function () { return lastCount; },
+      _getLatestCount: function () { return latestCount; },
+      _isPerTapRunning: function () { return perTapRunning; },
+      _isTransitioning: function () { return transitionActive; },
+      _getDisplayedText: function () { return displayedText; },
     };
   }
 
-  const api = { createRenderer };
+  var api = { createRenderer: createRenderer };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   } else if (typeof window !== 'undefined') {

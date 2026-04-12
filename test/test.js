@@ -300,24 +300,26 @@ test('layout settings update during animation lock', () => {
   assert.strictEqual(countEl.textContent, '10', 'count stays pinned');
 });
 
-test('second milestone during active animation is ignored (no queuing)', () => {
+test('second milestone during active animation fires after first ends', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 9 });
   renderer.applyState({ ...FLASH_BASE, count: 10 }); // fires small (750ms)
   assert.strictEqual(renderer._isLocked(), true);
 
-  // Partially through — another milestone value arrives.
+  // Partially through — another milestone value arrives (queued).
   clock.advance(250);
   renderer.applyState({ ...FLASH_BASE, count: 20 });
-  assert.strictEqual(renderer._isLocked(), true, 'no new flash queued');
-  assert.strictEqual(countEl.textContent, '10', 'still showing original');
+  assert.strictEqual(renderer._isLocked(), true, 'first flash still running');
+  assert.strictEqual(countEl.textContent, '10', 'still showing 10');
 
-  // Drain the original animation.
+  // First flash ends at 750ms; catch-up transition to 20 fires second flash.
   clock.advance(500);
-  assert.strictEqual(renderer._isLocked(), false);
-  assert.strictEqual(countEl.textContent, '20', 'jumps to latest count');
+  assert.strictEqual(countEl.textContent, '20', 'caught up to 20');
+  assert.strictEqual(renderer._isLocked(), true, 'second flash for milestone 20');
 
-  // And no residual animation should kick off for the skipped 20.
+  // Second small flash: 750ms.
+  clock.advance(750);
+  assert.strictEqual(renderer._isLocked(), false, 'second flash done');
   clock.advance(5000);
   assert.strictEqual(renderer._isLocked(), false);
 });
@@ -435,15 +437,22 @@ test('per-tap flash disabled when perTapFlashEnabled is false', () => {
 });
 
 test('per-tap flash fires with full DEFAULT_STATE (milestones enabled)', () => {
-  // Matches real-world scenario: all defaults active, non-milestone increment
+  // Matches real-world scenario: all defaults active, non-milestone increment.
+  // DEFAULT_STATE has transitionStyle: 'pulse-changed' (200ms), so per-tap
+  // fires after the transition completes.
   const { renderer, document, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...DEFAULT_STATE, count: 0 }); // initial state
   renderer.applyState({ ...DEFAULT_STATE, count: 1 }); // +1, no milestone
 
+  // Transition playing — no flash yet.
+  assert.strictEqual(renderer._isTransitioning(), true);
+  assert.ok(!document.body.classList.contains('inverted'), 'no flash during transition');
+
+  // Transition completes → per-tap fires.
+  clock.advance(200);
   assert.ok(document.body.classList.contains('inverted'),
-    'per-tap should fire on non-milestone increment with defaults');
+    'per-tap fires after transition completes');
   assert.strictEqual(renderer._isPerTapRunning(), true);
-  assert.strictEqual(renderer._isLocked(), false, 'display not locked');
   assert.strictEqual(countEl.textContent, '1', 'count updates normally');
 
   clock.advance(250);
@@ -887,6 +896,93 @@ test('letter spacing range accepts -20 and +100', () => {
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 100 } }));
   assert.strictEqual(getState().letterSpacing, 100);
   resetState();
+});
+
+// ---------------------------------------------------------------------------
+// Digit-splitting renderer
+
+test('digit-splitting produces a span per character including commas', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 1234 });
+  const digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits.length, 5, 'five spans: 1 , 2 3 4');
+  assert.strictEqual(digits[0].textContent, '1');
+  assert.strictEqual(digits[1].textContent, ',');
+  assert.strictEqual(digits[2].textContent, '2');
+  assert.strictEqual(digits[3].textContent, '3');
+  assert.strictEqual(digits[4].textContent, '4');
+  assert.strictEqual(countEl.textContent, '1,234');
+});
+
+test('changed-digit detection: equal-length strings identify changed positions', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'pulse-changed' };
+  renderer.applyState({ ...state, count: 123 });
+  renderer.applyState({ ...state, count: 124 }); // only last digit changes
+
+  const digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits.length, 3);
+  // Only position 2 (the '4') should have the pulse class.
+  assert.ok(!digits[0].classList.contains('pulse'), 'pos 0 unchanged');
+  assert.ok(!digits[1].classList.contains('pulse'), 'pos 1 unchanged');
+  assert.ok(digits[2].classList.contains('pulse'), 'pos 2 changed');
+  clock.advance(200); // clean up
+});
+
+test('length-change detection: 999 → 1000 treats all positions as changed', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'pulse-changed' };
+  renderer.applyState({ ...state, count: 999 });
+  renderer.applyState({ ...state, count: 1000 }); // "999" → "1,000"
+
+  const digits = countEl.querySelectorAll('.digit');
+  // "1,000" = 5 chars. All should be pulsing since lengths differ.
+  assert.strictEqual(digits.length, 5);
+  for (let i = 0; i < digits.length; i++) {
+    assert.ok(digits[i].classList.contains('pulse'), `pos ${i} should pulse`);
+  }
+  clock.advance(200);
+});
+
+test('queue behavior: incoming count during transition does not render', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'pulse-changed' };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 }); // transition starts (200ms)
+  assert.strictEqual(renderer._isTransitioning(), true);
+  assert.strictEqual(countEl.textContent, '6');
+
+  // More counts arrive during transition — they queue.
+  renderer.applyState({ ...state, count: 7 });
+  renderer.applyState({ ...state, count: 8 });
+  assert.strictEqual(countEl.textContent, '6', 'display not updated during transition');
+  assert.strictEqual(renderer._getLatestCount(), 8);
+
+  // Transition completes — display jumps to latest.
+  clock.advance(200);
+  assert.strictEqual(countEl.textContent, '8', 'resolved to latest after transition');
+});
+
+test('flash sequencing: milestone flash starts after transition completes', () => {
+  const { renderer, countEl, document, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'pulse-changed' };
+  renderer.applyState({ ...state, count: 9 });
+  renderer.applyState({ ...state, count: 10 }); // milestone at 10
+
+  // Immediately: transition active, flash NOT yet started.
+  assert.strictEqual(renderer._isTransitioning(), true);
+  assert.strictEqual(renderer._isLocked(), false, 'no flash during transition');
+  assert.strictEqual(countEl.textContent, '10');
+
+  // Transition completes at 200ms → flash starts.
+  clock.advance(200);
+  assert.strictEqual(renderer._isTransitioning(), false);
+  assert.strictEqual(renderer._isLocked(), true, 'flash starts after transition');
+  assert.ok(document.body.classList.contains('inverted'));
+
+  // Small flash = 750ms.
+  clock.advance(750);
+  assert.strictEqual(renderer._isLocked(), false, 'flash done');
 });
 
 test('letter spacing range clamps values outside bounds', () => {
