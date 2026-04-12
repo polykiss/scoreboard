@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { WebSocketServer, WebSocket } = require('ws');
+const { spawn } = require('child_process');
 
 const PORT = 3000;
 const STATE_FILE = path.join(__dirname, 'state.json');
@@ -35,6 +36,8 @@ const DEFAULT_STATE = {
   minDigits: 0,
   fadeLeadingZeros: 30,
   useCommas: true,
+  shuttingDown: false,
+  rebooting: false,
   userDefaults: null,
 };
 
@@ -117,6 +120,9 @@ function loadState() {
   } catch (err) {
     console.error('Failed to load state.json, using defaults:', err.message);
   }
+  // Transient power flags — always start clean.
+  loaded.shuttingDown = false;
+  loaded.rebooting = false;
   // Validate selectedFont — if the file disappeared, fall back gracefully.
   loaded.selectedFont = resolveSelectedFont(listFonts(), loaded.selectedFont);
   return loaded;
@@ -232,12 +238,35 @@ function handleMessage(raw) {
       state.userDefaults = saved;
       break;
     }
+    case 'shutdown':
+      state.shuttingDown = true;
+      break;
+    case 'reboot':
+      state.rebooting = true;
+      break;
     default:
       return;
   }
 
   persistState();
   broadcast();
+
+  // Delayed power actions — give the UI time to show the status message.
+  if (msg.type === 'shutdown') {
+    setTimeout(function () {
+      var child = spawn('sudo', ['shutdown', '-h', 'now'], {
+        detached: true, stdio: 'ignore',
+      });
+      child.unref();
+    }, 1500);
+  } else if (msg.type === 'reboot') {
+    setTimeout(function () {
+      var child = spawn('sudo', ['reboot'], {
+        detached: true, stdio: 'ignore',
+      });
+      child.unref();
+    }, 1500);
+  }
 }
 
 wss.on('connection', (ws) => {

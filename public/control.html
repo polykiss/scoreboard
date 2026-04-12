@@ -301,6 +301,20 @@
       border-color: var(--green);
     }
 
+    /* ---------- power controls ---------- */
+
+    .power-section {
+      margin-top: 24px;
+      padding-top: 16px;
+    }
+    .power-btn {
+      border-color: #8b3a3a;
+      color: #ddd;
+    }
+    .power-btn::before {
+      background: rgba(180,50,50,0.25);
+    }
+
     select,
     .field input[type="number"] {
       width: 100%;
@@ -471,6 +485,11 @@
     <button class="hold-btn" id="saveDefaultsBtn"><span class="hold-label">Save current as default</span></button>
     <button class="hold-btn" id="resetUserBtn"><span class="hold-label">Reset to my defaults</span></button>
     <button class="hold-btn" id="resetFactoryBtn"><span class="hold-label">Reset to factory defaults</span></button>
+  </div>
+
+  <div class="power-section">
+    <button class="hold-btn power-btn" id="rebootBtn"><span class="hold-label">Reboot</span></button>
+    <button class="hold-btn power-btn" id="shutdownBtn"><span class="hold-label">Shutdown</span></button>
   </div>
 
   <script>
@@ -745,6 +764,14 @@
     setupHoldButton(
       document.getElementById('resetFactoryBtn'),
       'reset-to-factory-defaults', 'Reset to factory defaults', 'Reset ✓'
+    );
+    setupHoldButton(
+      document.getElementById('rebootBtn'),
+      'reboot', 'Reboot', 'Rebooting…'
+    );
+    setupHoldButton(
+      document.getElementById('shutdownBtn'),
+      'shutdown', 'Shutdown', 'Shutting down…'
     );
 
     // --- setup controls ---

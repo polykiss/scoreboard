@@ -13,6 +13,7 @@ const {
   resolveSelectedFont,
   loadState,
   DEFAULT_STATE,
+  PATCH_KEYS,
 } = require('../server');
 const { createRenderer } = require('../public/display.js');
 
@@ -833,7 +834,6 @@ test('transitionStyle in DEFAULT_STATE with default pulse-changed', () => {
 });
 
 test('transitionStyle is in PATCH_KEYS', () => {
-  const { PATCH_KEYS } = require('../server');
   assert.ok(PATCH_KEYS.has('transitionStyle'));
   assert.ok(!PATCH_KEYS.has('flashOnUpdate'));
 });
@@ -1592,6 +1592,62 @@ test('letter spacing range clamps values outside bounds', () => {
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 200 } }));
   assert.strictEqual(getState().letterSpacing, 100, 'clamped to 100');
   resetState();
+});
+
+// ---------------------------------------------------------------------------
+// Shutdown and reboot power controls
+
+test('shutdown action sets shuttingDown: true', () => {
+  resetState();
+  assert.strictEqual(getState().shuttingDown, false);
+  handleMessage(JSON.stringify({ type: 'shutdown' }));
+  assert.strictEqual(getState().shuttingDown, true);
+  resetState();
+});
+
+test('reboot action sets rebooting: true', () => {
+  resetState();
+  assert.strictEqual(getState().rebooting, false);
+  handleMessage(JSON.stringify({ type: 'reboot' }));
+  assert.strictEqual(getState().rebooting, true);
+  resetState();
+});
+
+test('shuttingDown and rebooting are not in PATCH_KEYS', () => {
+  assert.ok(!PATCH_KEYS.has('shuttingDown'));
+  assert.ok(!PATCH_KEYS.has('rebooting'));
+});
+
+test('loadState forces shuttingDown and rebooting to false', () => {
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify({ shuttingDown: true, rebooting: true }));
+    const loaded = loadState();
+    assert.strictEqual(loaded.shuttingDown, false, 'shuttingDown forced false');
+    assert.strictEqual(loaded.rebooting, false, 'rebooting forced false');
+  } finally {
+    if (backup !== null) fs.writeFileSync(statePath, backup);
+    else fs.unlinkSync(statePath);
+  }
+});
+
+test('display shows shutdown message when shuttingDown is true', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42 });
+  assert.strictEqual(countEl.textContent, '42');
+
+  renderer.applyState({ ...FLASH_BASE, count: 42, shuttingDown: true });
+  assert.strictEqual(countEl.textContent, 'Powering off...');
+});
+
+test('display shows reboot message when rebooting is true', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42 });
+  assert.strictEqual(countEl.textContent, '42');
+
+  renderer.applyState({ ...FLASH_BASE, count: 42, rebooting: true });
+  assert.strictEqual(countEl.textContent, 'Rebooting...');
 });
 
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {

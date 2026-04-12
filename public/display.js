@@ -539,6 +539,18 @@
         countEl.style.textShadow = 'none';
       }
 
+      // Power state: replace count with shutdown/reboot message.
+      if (state.shuttingDown || state.rebooting) {
+        var msg = state.shuttingDown ? 'Powering off...' : 'Rebooting...';
+        transitionActive = false;
+        animationLocked = false;
+        perTapRunning = false;
+        countEl.innerHTML = '';
+        countEl.textContent = msg;
+        displayedText = '';
+        return;
+      }
+
       // Re-apply digit widths and leading-zero fade to existing DOM
       // whenever visual style changes, even without a count change.
       if (displayedText && !transitionActive) {

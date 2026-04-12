@@ -33,6 +33,24 @@ public/fonts/jd_led5.ttf
 
 The display view references it via `@font-face` with `font-display: block`, so if the file is missing the number won't render until it's present.
 
+## Power controls (shutdown / reboot)
+
+The controller has hold-to-confirm buttons for shutting down or rebooting the host machine (useful when running headless on a Raspberry Pi). These require passwordless sudo for the `shutdown` and `reboot` commands.
+
+Create the sudoers rule (replace `sx` with your user if different):
+
+```bash
+sudo visudo -f /etc/sudoers.d/scoreboard
+```
+
+Paste this single line:
+
+```
+sx ALL=(ALL) NOPASSWD: /usr/sbin/shutdown, /usr/sbin/reboot
+```
+
+`visudo` validates the syntax before saving. If the rule is missing, the shutdown/reboot buttons will set the state flag and show the status message but the actual system command will fail silently.
+
 ## Security note
 
 There's no authentication. Anyone on the same network can hit `/control` and change the scoreboard. This is intended for trusted LANs only — don't expose port 3000 to the public internet.
