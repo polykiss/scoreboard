@@ -1048,12 +1048,11 @@ test('slide: changed slots have two child elements during animation', () => {
 
   const digits = countEl.querySelectorAll('.digit');
   // "247" → "248": positions 0,1 unchanged, position 2 changed.
-  // Unchanged slots: one text node, no animation children.
-  assert.strictEqual(digits[0].childNodes.length, 1, 'unchanged slot has one child');
-  assert.strictEqual(digits[0].textContent, '2');
+  // Unchanged slots: one .digit-char child.
+  assert.strictEqual(digits[0].querySelectorAll('.digit-char').length, 1,
+    'unchanged slot has one digit-char');
   assert.strictEqual(digits[0].querySelectorAll('.slide-in').length, 0,
     'unchanged slot has no slide-in');
-  assert.strictEqual(digits[1].childNodes.length, 1, 'unchanged slot has one child');
 
   // Changed slot: two span children (slide-in + slide-out).
   assert.strictEqual(digits[2].querySelectorAll('.slide-in').length, 1);
@@ -1063,14 +1062,14 @@ test('slide: changed slots have two child elements during animation', () => {
   assert.strictEqual(slideIn.textContent, '8', 'incoming has new character');
   assert.strictEqual(slideOut.textContent, '7', 'outgoing has old character');
 
-  // Both have display:inline-block so transforms apply.
-  assert.strictEqual(slideIn.style.display, 'inline-block');
-  assert.strictEqual(slideOut.style.display, 'inline-block');
+  // Both are absolutely positioned (position:absolute auto-blockifies).
+  assert.strictEqual(slideIn.style.position, 'absolute');
+  assert.strictEqual(slideOut.style.position, 'absolute');
 
   clock.advance(125);
 });
 
-test('slide: after animation each slot has exactly one text node', () => {
+test('slide: after animation surviving character stays absolutely positioned', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   const state = { ...FLASH_BASE, transitionStyle: 'slide' };
   renderer.applyState({ ...state, count: 100 });
@@ -1084,10 +1083,12 @@ test('slide: after animation each slot has exactly one text node', () => {
       `slot ${i}: no slide-in after cleanup`);
     assert.strictEqual(digits[i].querySelectorAll('.slide-out').length, 0,
       `slot ${i}: no slide-out after cleanup`);
-    assert.strictEqual(digits[i].style.overflow, '',
-      `slot ${i}: overflow cleared`);
-    assert.strictEqual(digits[i].style.position, '',
-      `slot ${i}: position cleared`);
+    // Surviving character is .digit-char, still absolutely positioned.
+    const ch = digits[i].querySelector('.digit-char');
+    assert.ok(ch, `slot ${i}: has digit-char`);
+    assert.strictEqual(ch.style.position, 'absolute', `slot ${i}: absolute at rest`);
+    // Slot stays position:relative (always, from renderDigits).
+    assert.strictEqual(digits[i].style.position, 'relative');
   }
   assert.strictEqual(countEl.textContent, '101');
 });
@@ -1110,13 +1111,15 @@ test('slide: unchanged slots are not re-rendered during transition', () => {
     'unchanged slot 0 is same DOM node');
   assert.strictEqual(digitsAfter[1], slot1Before,
     'unchanged slot 1 is same DOM node');
-  // Unchanged slots should NOT have overflow or position styles.
-  assert.strictEqual(digitsAfter[0].style.overflow, '',
-    'unchanged slot has no overflow');
-  assert.strictEqual(digitsAfter[0].style.position, '',
-    'unchanged slot has no position');
+  // Unchanged slots still have their .digit-char child, no animation elements.
+  assert.strictEqual(digitsAfter[0].querySelectorAll('.digit-char').length, 1);
+  assert.strictEqual(digitsAfter[0].querySelectorAll('.slide-in').length, 0);
 
   clock.advance(125);
+
+  // After cleanup, unchanged slots are still the same DOM nodes.
+  assert.strictEqual(countEl.querySelectorAll('.digit')[0], slot0Before,
+    'still same after cleanup');
 });
 
 test('crossfade: unchanged slots are not re-rendered during transition', () => {
@@ -1159,29 +1162,34 @@ test('slide: opacity is included in keyframes (old→0, new→1)', () => {
   clock.advance(125);
 });
 
-test('slide: changed slot has explicit height and overflow hidden', () => {
+test('slide: all slots have stable dimensions (position/overflow/height)', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   const state = { ...FLASH_BASE, transitionStyle: 'slide' };
   renderer.applyState({ ...state, count: 247 });
+
+  // All slots (changed and unchanged) are position:relative + overflow:hidden
+  // + explicit height, since renderDigits always sets them.
+  const digitsBefore = countEl.querySelectorAll('.digit');
+  for (let i = 0; i < digitsBefore.length; i++) {
+    assert.strictEqual(digitsBefore[i].style.position, 'relative');
+    assert.strictEqual(digitsBefore[i].style.overflow, 'hidden');
+    assert.ok(digitsBefore[i].style.height.endsWith('px'));
+  }
+  const heightBefore = digitsBefore[0].style.height;
+
   renderer.applyState({ ...state, count: 248 }); // last digit changes
 
-  const digits = countEl.querySelectorAll('.digit');
-  // Changed slot (position 2) should have explicit height and overflow.
-  assert.ok(digits[2].style.height.endsWith('px'), 'changed slot has explicit px height');
-  assert.strictEqual(digits[2].style.overflow, 'hidden', 'changed slot clips');
-  assert.strictEqual(digits[2].style.position, 'relative', 'changed slot is relative');
-
-  // Unchanged slots should NOT have height/overflow overrides.
-  assert.strictEqual(digits[0].style.height, '', 'unchanged slot has no height override');
-  assert.strictEqual(digits[0].style.overflow, '', 'unchanged slot has no overflow');
-  assert.strictEqual(digits[0].style.position, '', 'unchanged slot has no position');
-  assert.strictEqual(digits[1].style.height, '', 'unchanged slot has no height override');
+  // During animation, unchanged slots retain the same dimensions.
+  const digitsDuring = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digitsDuring[0].style.height, heightBefore,
+    'unchanged slot height stable during animation');
 
   clock.advance(125);
-  // After cleanup, renderDigits rebuilds all slots — re-query.
-  const cleaned = countEl.querySelectorAll('.digit');
-  assert.strictEqual(cleaned[2].style.height, '', 'height cleared after animation');
-  assert.strictEqual(cleaned[2].style.overflow, '', 'overflow cleared after animation');
+
+  // After cleanup, all slots still have stable dimensions.
+  const digitsAfter = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digitsAfter[0].style.height, heightBefore,
+    'height stable after animation');
 });
 
 test('slide: both inner elements are absolutely positioned', () => {
@@ -1212,9 +1220,10 @@ test('crossfade: both inner elements are absolutely positioned', () => {
   // Changed slot has explicit height.
   assert.ok(changedSlot.style.height.endsWith('px'), 'crossfade slot has explicit height');
   clock.advance(200);
-  // Cleaned up — renderDigits rebuilds, re-query.
-  const cleanedSlot = countEl.querySelectorAll('.digit')[1];
-  assert.strictEqual(cleanedSlot.style.height, '', 'height cleared');
+  // After cleanup, surviving character is .digit-char, still absolute.
+  const survived = countEl.querySelectorAll('.digit')[1].querySelector('.digit-char');
+  assert.ok(survived, 'surviving character exists');
+  assert.strictEqual(survived.style.position, 'absolute', 'still absolute after cleanup');
 });
 
 test('slide only animates changed digit positions', () => {
@@ -1262,6 +1271,77 @@ test('crossfade: slot width is fixed during transition', () => {
   assert.ok(changedSlot.style.width.endsWith('px'),
     'slot has fixed px width during crossfade');
   clock.advance(200);
+});
+
+test('slide: character position stable across lifecycle (no horizontal shift)', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 7 });
+
+  // At rest: character is .digit-char, position: absolute, left: 0.
+  const slotAtRest = countEl.querySelectorAll('.digit')[0];
+  const charAtRest = slotAtRest.querySelector('.digit-char');
+  assert.strictEqual(charAtRest.style.position, 'absolute', 'absolute at rest');
+  assert.ok(charAtRest.style.left === '0' || charAtRest.style.left === '0px', 'left:0 at rest');
+  assert.ok(charAtRest.style.top === '0' || charAtRest.style.top === '0px', 'top:0 at rest');
+
+  renderer.applyState({ ...state, count: 8 }); // triggers slide
+
+  // During animation: incoming is .slide-in, same absolute coords.
+  const slotDuring = countEl.querySelectorAll('.digit')[0];
+  const incDuring = slotDuring.querySelector('.slide-in');
+  assert.strictEqual(incDuring.style.position, 'absolute', 'absolute during animation');
+  assert.ok(incDuring.style.left === '0' || incDuring.style.left === '0px', 'left:0 during animation');
+  assert.ok(incDuring.style.top === '0' || incDuring.style.top === '0px', 'top:0 during animation');
+
+  clock.advance(125); // complete
+
+  // After cleanup: surviving character is .digit-char, SAME absolute coords.
+  const slotAfter = countEl.querySelectorAll('.digit')[0];
+  const charAfter = slotAfter.querySelector('.digit-char');
+  assert.strictEqual(charAfter.style.position, 'absolute', 'absolute after cleanup');
+  assert.ok(charAfter.style.left === '0' || charAfter.style.left === '0px', 'left:0 after cleanup');
+  assert.ok(charAfter.style.top === '0' || charAfter.style.top === '0px', 'top:0 after cleanup');
+});
+
+test('crossfade: character position stable across lifecycle', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'crossfade' };
+  renderer.applyState({ ...state, count: 7 });
+
+  const charAtRest = countEl.querySelectorAll('.digit')[0].querySelector('.digit-char');
+  assert.strictEqual(charAtRest.style.position, 'absolute');
+  assert.ok(charAtRest.style.left === '0' || charAtRest.style.left === '0px');
+
+  renderer.applyState({ ...state, count: 8 });
+
+  const incDuring = countEl.querySelectorAll('.digit')[0].querySelector('.digit-fade-in');
+  assert.strictEqual(incDuring.style.position, 'absolute');
+  assert.ok(incDuring.style.left === '0' || incDuring.style.left === '0px');
+
+  clock.advance(200);
+
+  const charAfter = countEl.querySelectorAll('.digit')[0].querySelector('.digit-char');
+  assert.strictEqual(charAfter.style.position, 'absolute');
+  assert.ok(charAfter.style.left === '0' || charAfter.style.left === '0px');
+});
+
+test('cleanupSlots does not call renderDigits (preserves character position)', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide' };
+  renderer.applyState({ ...state, count: 10 });
+
+  // Grab the unchanged slot's DOM reference.
+  const slot0Before = countEl.querySelectorAll('.digit')[0];
+
+  renderer.applyState({ ...state, count: 11 }); // last digit slides
+  clock.advance(125); // cleanup runs
+
+  // If cleanupSlots called renderDigits, slot0 would be a new DOM node.
+  // Since it doesn't, the original node survives.
+  const slot0After = countEl.querySelectorAll('.digit')[0];
+  assert.strictEqual(slot0After, slot0Before,
+    'cleanup preserved unchanged slot identity (no renderDigits rebuild)');
 });
 
 test('slide duration is 125ms', () => {
@@ -1319,16 +1399,17 @@ test('tabularNums updates live without a count change', () => {
   assert.strictEqual(countEl.style.fontVariantNumeric, 'tabular-nums');
 });
 
-test('forceMonospacedDigits updates live without a count change', () => {
+test('forceMonospacedDigits updates digit widths live', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
-  const base = { ...FLASH_BASE, count: 1234, forceMonospacedDigits: false };
+  const base = { ...FLASH_BASE, count: 1234, forceMonospacedDigits: true };
   renderer.applyState(base);
   const d0 = countEl.querySelectorAll('.digit')[0];
-  assert.strictEqual(d0.style.width, '', 'no width when off');
+  assert.ok(d0.style.width.endsWith('px'), 'width set');
 
-  renderer.applyState({ ...base, forceMonospacedDigits: true });
+  // Changing fontSize should update widths live.
+  renderer.applyState({ ...base, fontSize: 600 });
   const d0After = countEl.querySelectorAll('.digit')[0];
-  assert.ok(d0After.style.width.endsWith('px'), 'width applied live');
+  assert.ok(d0After.style.width.endsWith('px'), 'width updated live');
 });
 
 // ---------------------------------------------------------------------------
@@ -1356,13 +1437,12 @@ test('forceMonospacedDigits true produces fixed-width digit slots', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: true });
   const digits = countEl.querySelectorAll('.digit');
-  // Digit slots (not comma) should have a pixel width set.
+  // Digit slots should have a pixel width set.
   assert.ok(digits[0].style.width.endsWith('px'), 'digit has px width');
-  assert.strictEqual(digits[0].style.textAlign, 'center', 'digit is centered');
-  // Comma slot should NOT have forced width.
-  assert.strictEqual(digits[1].style.width, '', 'comma has no forced width');
   // All digit slots should have the same width.
   assert.strictEqual(digits[0].style.width, digits[2].style.width, 'uniform width');
+  // Comma slot also has a width (narrower, for absolute-positioned layout).
+  assert.ok(digits[1].style.width.endsWith('px'), 'comma has px width');
 });
 
 // ---------------------------------------------------------------------------
@@ -1496,11 +1576,13 @@ test('toggling useCommas does not trigger animation', () => {
     'format-only change should not animate');
 });
 
-test('forceMonospacedDigits false does not set digit widths', () => {
+test('all digit slots have explicit width (required for absolute children)', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: false });
   const digits = countEl.querySelectorAll('.digit');
-  assert.strictEqual(digits[0].style.width, '', 'no forced width');
+  // Even with forceMonospacedDigits off, slots need width for layout.
+  assert.ok(digits[0].style.width.endsWith('px'), 'digit has explicit width');
+  assert.ok(digits[2].style.width.endsWith('px'), 'digit has explicit width');
 });
 
 test('letter spacing range clamps values outside bounds', () => {

@@ -101,15 +101,23 @@
       measuredFontKey = fontKey;
     }
 
+    // Get the visible character from a digit slot (may be a direct text
+    // node or a .digit-char child span).
+    function slotChar(slot) {
+      var charEl = slot.querySelector('.digit-char, .digit-fade-in, .slide-in');
+      if (charEl) return charEl.textContent;
+      return slot.textContent;
+    }
+
     function applyDigitWidths(state) {
-      if (!state.forceMonospacedDigits) return;
+      // With absolute-positioned characters, all slots need explicit width.
+      // Re-measure in case font/size changed, then update digit slot widths.
       measureDigitDimensions(state);
       var digits = countEl.querySelectorAll('.digit');
       for (var i = 0; i < digits.length; i++) {
-        var ch = digits[i].textContent;
+        var ch = slotChar(digits[i]);
         if (ch >= '0' && ch <= '9') {
           digits[i].style.width = measuredDigitWidth + 'px';
-          digits[i].style.textAlign = 'center';
         }
       }
     }
@@ -198,13 +206,39 @@
     }
 
     // Render count as per-digit <span class="digit"> elements.
+    // Each digit slot is a relative container with an absolutely-positioned
+    // character child. This ensures the character's position is identical
+    // at rest, during animation, and after cleanup — no positioning mode
+    // switch, no horizontal shift.
     function renderDigits(text) {
+      var st = latestState || {};
+      measureDigitDimensions(st);
       countEl.innerHTML = '';
       for (var i = 0; i < text.length; i++) {
-        var span = document.createElement('span');
-        span.className = 'digit';
-        span.textContent = text[i];
-        countEl.appendChild(span);
+        var ch = text[i];
+        var isDigit = (ch >= '0' && ch <= '9');
+        var slot = document.createElement('span');
+        slot.className = 'digit';
+        slot.style.position = 'relative';
+        slot.style.overflow = 'hidden';
+        slot.style.height = measuredDigitHeight + 'px';
+        // All digit slots need explicit width since children are absolute.
+        // Digit chars get the widest-digit width; comma slots get a
+        // measured comma width (approximated at half digit width in jsdom).
+        if (isDigit) {
+          slot.style.width = measuredDigitWidth + 'px';
+        } else {
+          slot.style.width = Math.round(measuredDigitWidth * 0.5) + 'px';
+        }
+        // Character is always absolutely positioned inside the slot.
+        var charEl = document.createElement('span');
+        charEl.className = 'digit-char';
+        charEl.style.position = 'absolute';
+        charEl.style.left = '0';
+        charEl.style.top = '0';
+        charEl.textContent = ch;
+        slot.appendChild(charEl);
+        countEl.appendChild(slot);
       }
       displayedText = text;
       if (latestState) {
@@ -251,11 +285,27 @@
       return countEl.querySelectorAll('.digit');
     }
 
-    // Cleanup helper: after a crossfade/slide, rebuild all slots via
-    // renderDigits so the resting state is consistent (same DOM shape
-    // whether or not a transition just ran).
+    // Cleanup helper: after a crossfade/slide, remove the outgoing element
+    // from each changed slot, leaving the surviving incoming character in
+    // place with identical absolute positioning. No renderDigits rebuild.
     function cleanupSlots(newText) {
-      renderDigits(newText);
+      var slots = countEl.querySelectorAll('.digit');
+      for (var i = 0; i < slots.length; i++) {
+        var s = slots[i];
+        // Remove outgoing element(s) — identified by animation class.
+        var outs = s.querySelectorAll('.digit-out, .slide-out');
+        for (var j = 0; j < outs.length; j++) outs[j].remove();
+        // Strip animation class from surviving incoming element.
+        var inc = s.querySelector('.digit-fade-in, .slide-in');
+        if (inc) {
+          inc.className = 'digit-char';
+          inc.removeAttribute('data-dir');
+        }
+      }
+      if (latestState) {
+        applyDigitWidths(latestState);
+        applyLeadingZeroFade(latestState);
+      }
     }
 
     // Start a transition from oldText to newText.
@@ -299,12 +349,6 @@
       }
 
       if (style === 'crossfade' || style === 'slide') {
-        // Measure slot dimensions. Always use fixed-width during transitions
-        // to prevent character-width pops (e.g. narrow "1" vs wide "8").
-        measureDigitDimensions(latestState || {});
-        var slotW = measuredDigitWidth;
-        var slotH = measuredDigitHeight;
-
         var animSlots = ensureSlots(oldText, newText);
         var animChanged = toSet(changedPositions);
         for (var ai = 0; ai < animSlots.length; ai++) {
@@ -312,30 +356,21 @@
           var slot = animSlots[ai];
           var oldCh = (ai < oldText.length) ? oldText[ai] : '';
           var newCh = newText[ai];
-          var isDigitChar = (newCh >= '0' && newCh <= '9');
 
-          // Give slot explicit dimensions so its size is fixed regardless
-          // of what children do. overflow: hidden clips the animation.
-          slot.style.position = 'relative';
-          slot.style.overflow = 'hidden';
-          slot.style.height = slotH + 'px';
-          if (isDigitChar) {
-            slot.style.width = slotW + 'px';
-            slot.style.textAlign = 'center';
-          }
-          slot.textContent = '';
+          // Slot is already position:relative, overflow:hidden, fixed
+          // dimensions from renderDigits/ensureSlots. Remove the resting
+          // character and replace with incoming + outgoing pair.
+          slot.innerHTML = '';
 
-          // Both children are absolutely positioned so neither affects
-          // the slot's layout box.
+          // Incoming character — same absolute positioning as resting state.
           var inc = document.createElement('span');
-          inc.style.display = 'inline-block';
           inc.style.position = 'absolute';
           inc.style.left = '0';
           inc.style.top = '0';
           inc.textContent = newCh;
 
+          // Outgoing character — same absolute positioning.
           var outg = document.createElement('span');
-          outg.style.display = 'inline-block';
           outg.style.position = 'absolute';
           outg.style.left = '0';
           outg.style.top = '0';
