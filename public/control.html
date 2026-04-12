@@ -411,6 +411,20 @@
       <input type="range" id="glowIntensity" min="0" max="100">
     </div>
 
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Digit rendering</label>
+    </div>
+
+    <div class="field toggle-row">
+      <label>Tabular nums</label>
+      <input type="checkbox" id="tabularNums">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Force monospaced digits</label>
+      <input type="checkbox" id="forceMonospacedDigits">
+    </div>
+
     <div class="field toggle-row">
       <label>Per-tap flash</label>
       <input type="checkbox" id="perTapFlashEnabled">
@@ -482,6 +496,8 @@
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
+    const tabularNumsEl          = document.getElementById('tabularNums');
+    const forceMonospacedDigitsEl = document.getElementById('forceMonospacedDigits');
     const perTapFlashEnabledEl = document.getElementById('perTapFlashEnabled');
     const smallFlashEnabledEl  = document.getElementById('smallFlashEnabled');
     const smallFlashIntervalEl = document.getElementById('smallFlashInterval');
@@ -556,6 +572,8 @@
       }
       glowEl.checked  = !!state.glow;
 
+      tabularNumsEl.checked = !!state.tabularNums;
+      forceMonospacedDigitsEl.checked = !!state.forceMonospacedDigits;
       perTapFlashEnabledEl.checked = !!state.perTapFlashEnabled;
       smallFlashEnabledEl.checked = !!state.smallFlashEnabled;
       bigFlashEnabledEl.checked   = !!state.bigFlashEnabled;
@@ -728,6 +746,10 @@
     transitionStyleEl.addEventListener('change',
       () => patch({ transitionStyle: transitionStyleEl.value }));
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
+    tabularNumsEl.addEventListener('change',
+      () => patch({ tabularNums: tabularNumsEl.checked }));
+    forceMonospacedDigitsEl.addEventListener('change',
+      () => patch({ forceMonospacedDigits: forceMonospacedDigitsEl.checked }));
     perTapFlashEnabledEl.addEventListener('change',
       () => patch({ perTapFlashEnabled: perTapFlashEnabledEl.checked }));
     smallFlashEnabledEl.addEventListener('change',

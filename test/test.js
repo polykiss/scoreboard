@@ -1154,6 +1154,47 @@ test('slide only animates changed digit positions', () => {
   clock.advance(250);
 });
 
+// ---------------------------------------------------------------------------
+// Fixed-width digit rendering
+
+test('tabularNums true applies font-variant-numeric CSS', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, tabularNums: true });
+  assert.strictEqual(countEl.style.fontVariantNumeric, 'tabular-nums');
+});
+
+test('tabularNums false does not apply font-variant-numeric', () => {
+  const { document, countEl, offsetEl } = setupRenderer();
+  const renderer = createRenderer({
+    document, body: document.body, offsetEl, countEl,
+  });
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, tabularNums: false });
+  assert.strictEqual(countEl.style.fontVariantNumeric, '');
+});
+
+test('forceMonospacedDigits true produces fixed-width digit slots', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: true });
+  const digits = countEl.querySelectorAll('.digit');
+  // Digit slots (not comma) should have a pixel width set.
+  assert.ok(digits[0].style.width.endsWith('px'), 'digit has px width');
+  assert.strictEqual(digits[0].style.textAlign, 'center', 'digit is centered');
+  // Comma slot should NOT have forced width.
+  assert.strictEqual(digits[1].style.width, '', 'comma has no forced width');
+  // All digit slots should have the same width.
+  assert.strictEqual(digits[0].style.width, digits[2].style.width, 'uniform width');
+});
+
+test('forceMonospacedDigits false does not set digit widths', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: false });
+  const digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[0].style.width, '', 'no forced width');
+});
+
 test('letter spacing range clamps values outside bounds', () => {
   resetState();
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -50 } }));

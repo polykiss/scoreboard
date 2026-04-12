@@ -30,6 +30,8 @@ const DEFAULT_STATE = {
   bigFlashInterval: 100,
   perTapFlashEnabled: true,
   letterSpacing: 0,
+  tabularNums: true,
+  forceMonospacedDigits: true,
   userDefaults: null,
 };
 
@@ -54,6 +56,8 @@ const PATCH_KEYS = new Set([
   'bigFlashInterval',
   'perTapFlashEnabled',
   'letterSpacing',
+  'tabularNums',
+  'forceMonospacedDigits',
 ]);
 
 function listFonts() {

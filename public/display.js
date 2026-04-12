@@ -60,6 +60,58 @@
       currentFontFamily = name;
     }
 
+    // Digit width measurement for forceMonospacedDigits.
+    var measuredDigitWidth = 0;
+    var measuredFontKey = '';
+
+    function measureDigitWidth(state) {
+      var fontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '') +
+        '|' + (state.letterSpacing || 0);
+      if (fontKey === measuredFontKey && measuredDigitWidth > 0) return measuredDigitWidth;
+      // Measure the widest digit (0-9) by rendering in a hidden probe.
+      var probe = document.createElement('span');
+      probe.style.position = 'absolute';
+      probe.style.visibility = 'hidden';
+      probe.style.whiteSpace = 'nowrap';
+      probe.style.fontSize = (state.fontSize || 400) + 'px';
+      probe.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
+      probe.style.lineHeight = '1';
+      probe.style.display = 'inline-block';
+      if (currentFontFamily) {
+        var safeName = String(currentFontFamily).replace(/'/g, "\\'");
+        probe.style.fontFamily = "'" + safeName + "', monospace";
+      }
+      if (state.tabularNums) probe.style.fontVariantNumeric = 'tabular-nums';
+      countEl.appendChild(probe);
+      var maxW = 0;
+      for (var d = 0; d <= 9; d++) {
+        probe.textContent = String(d);
+        var w = probe.offsetWidth;
+        if (w > maxW) maxW = w;
+      }
+      countEl.removeChild(probe);
+      // In environments where offsetWidth returns 0 (jsdom), use fontSize
+      // as a reasonable approximation of digit width.
+      if (maxW === 0) maxW = state.fontSize || 400;
+      measuredDigitWidth = maxW;
+      measuredFontKey = fontKey;
+      return maxW;
+    }
+
+    function applyDigitWidths(state) {
+      if (!state.forceMonospacedDigits) return;
+      var w = measureDigitWidth(state);
+      var digits = countEl.querySelectorAll('.digit');
+      for (var i = 0; i < digits.length; i++) {
+        var ch = digits[i].textContent;
+        // Only force width on digit characters, not commas.
+        if (ch >= '0' && ch <= '9') {
+          digits[i].style.width = w + 'px';
+          digits[i].style.textAlign = 'center';
+        }
+      }
+    }
+
     function formatCount(n) {
       return Number(n).toLocaleString('en-US');
     }
@@ -74,6 +126,7 @@
         countEl.appendChild(span);
       }
       displayedText = text;
+      if (latestState) applyDigitWidths(latestState);
     }
 
     // Compare two formatted strings and return indices of changed positions.
@@ -122,8 +175,11 @@
         s.textContent = newText[i];
         s.style.overflow = '';
         s.style.position = '';
+        s.style.width = '';
+        s.style.textAlign = '';
         s.className = 'digit';
       }
+      if (latestState) applyDigitWidths(latestState);
     }
 
     // Start a transition from oldText to newText.
@@ -355,6 +411,14 @@
       countEl.style.fontSize = state.fontSize + 'px';
       applyFont(state.selectedFont);
       countEl.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
+
+      // Tabular numerics — CSS feature for fonts that support it.
+      countEl.style.fontVariantNumeric = state.tabularNums ? 'tabular-nums' : '';
+
+      // Invalidate digit width cache when font/size changes.
+      var newFontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '') +
+        '|' + (state.letterSpacing || 0);
+      if (newFontKey !== measuredFontKey) measuredDigitWidth = 0;
 
       if (state.glow) {
         var d = Number(state.glowDistance) || 0;
