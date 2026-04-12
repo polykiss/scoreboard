@@ -262,10 +262,18 @@
       return changed;
     }
 
-    function getTransitionDuration(style) {
-      if (style === 'slide') return SLIDE_MS;
+    function getTransitionDuration(style, state) {
+      var speed = (state && Number(state.transitionSpeed)) || 1;
+      if (speed <= 0) speed = 1;
+      if (style === 'slide') return Math.round(SLIDE_MS / speed);
       if (style === 'none') return 0;
-      return PULSE_MS;
+      return Math.round(PULSE_MS / speed);
+    }
+
+    function getFlashHalfMs(state) {
+      var speed = (state && Number(state.flashSpeed)) || 1;
+      if (speed <= 0) speed = 1;
+      return Math.round(FLASH_HALF_MS / speed);
     }
 
     // Build a quick-lookup set from the changedPositions array.
@@ -309,19 +317,20 @@
     }
 
     // Start a transition from oldText to newText.
-    function startTransition(oldText, newText, changedPositions, style, direction, onComplete) {
+    function startTransition(oldText, newText, changedPositions, style, direction, state, onComplete) {
       if (style === 'none' || changedPositions.length === 0) {
         renderDigits(newText);
         onComplete();
         return;
       }
 
-      var duration = getTransitionDuration(style);
+      var duration = getTransitionDuration(style, state);
 
       if (style === 'pulse-all') {
         renderDigits(newText);
         countEl.classList.remove('flash');
         void countEl.offsetWidth;
+        countEl.style.animationDuration = duration + 'ms';
         countEl.classList.add('flash');
         transitionActive = true;
         setTimeoutFn(function () {
@@ -336,7 +345,10 @@
         var digits = countEl.querySelectorAll('.digit');
         for (var i = 0; i < changedPositions.length; i++) {
           var pos = changedPositions[i];
-          if (digits[pos]) digits[pos].classList.add('pulse');
+          if (digits[pos]) {
+            digits[pos].style.animationDuration = duration + 'ms';
+            digits[pos].classList.add('pulse');
+          }
         }
         transitionActive = true;
         setTimeoutFn(function () {
@@ -385,6 +397,8 @@
             outg.className = 'slide-out';
             outg.setAttribute('data-dir', direction);
           }
+          inc.style.animationDuration = duration + 'ms';
+          outg.style.animationDuration = duration + 'ms';
 
           slot.appendChild(inc);
           slot.appendChild(outg);
@@ -457,7 +471,7 @@
       if (animationStep % 2 === 0) body.classList.add('inverted');
       else body.classList.remove('inverted');
       animationStep++;
-      setTimeoutFn(advanceAnimation, FLASH_HALF_MS);
+      setTimeoutFn(advanceAnimation, getFlashHalfMs(latestState));
     }
 
     function startMilestoneFlash(cycles) {
@@ -469,13 +483,14 @@
 
     function startPerTapFlash() {
       perTapRunning = true;
+      var halfMs = getFlashHalfMs(latestState);
       body.classList.add('inverted');
       setTimeoutFn(function () {
         body.classList.remove('inverted');
         setTimeoutFn(function () {
           perTapRunning = false;
-        }, FLASH_HALF_MS);
-      }, FLASH_HALF_MS);
+        }, halfMs);
+      }, halfMs);
     }
 
     // Main count update: run transition then check flash.
@@ -495,7 +510,7 @@
         lastCount = newCount;
         checkFlashAfterTransition(state, newCount, preCount);
       } else {
-        startTransition(oldText, newText, changedPositions, style, direction, function () {
+        startTransition(oldText, newText, changedPositions, style, direction, state, function () {
           lastCount = newCount;
           checkFlashAfterTransition(latestState || state, newCount, preCount);
         });

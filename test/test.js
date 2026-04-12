@@ -1595,6 +1595,93 @@ test('letter spacing range clamps values outside bounds', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Transition and flash speed multipliers
+
+test('transitionSpeed and flashSpeed in DEFAULT_STATE with value 1.0', () => {
+  assert.strictEqual(DEFAULT_STATE.transitionSpeed, 1.0);
+  assert.strictEqual(DEFAULT_STATE.flashSpeed, 1.0);
+});
+
+test('transitionSpeed and flashSpeed are in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('transitionSpeed'));
+  assert.ok(PATCH_KEYS.has('flashSpeed'));
+});
+
+test('server clamps transitionSpeed outside 0.25–3.0', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { transitionSpeed: 0.1 } }));
+  assert.strictEqual(getState().transitionSpeed, 0.25, 'clamped to min');
+  handleMessage(JSON.stringify({ type: 'patch', patch: { transitionSpeed: 5.0 } }));
+  assert.strictEqual(getState().transitionSpeed, 3.0, 'clamped to max');
+  resetState();
+});
+
+test('server clamps flashSpeed outside 0.25–3.0', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { flashSpeed: 0.0 } }));
+  assert.strictEqual(getState().flashSpeed, 0.25, 'clamped to min');
+  handleMessage(JSON.stringify({ type: 'patch', patch: { flashSpeed: 10.0 } }));
+  assert.strictEqual(getState().flashSpeed, 3.0, 'clamped to max');
+  resetState();
+});
+
+test('transitionSpeed 2.0 halves slide duration to ~63ms', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'slide', transitionSpeed: 2.0 };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 });
+  assert.strictEqual(renderer._isTransitioning(), true);
+
+  // 125ms / 2.0 = 62.5 → rounded to 63ms.
+  clock.advance(62);
+  assert.strictEqual(renderer._isTransitioning(), true, 'still active at 62ms');
+  clock.advance(1);
+  assert.strictEqual(renderer._isTransitioning(), false, 'done at 63ms');
+});
+
+test('flashSpeed 0.5 doubles flash half-cycle to ~250ms', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  const state = {
+    ...FLASH_BASE, transitionStyle: 'none',
+    perTapFlashEnabled: true, smallFlashEnabled: false, bigFlashEnabled: false,
+    flashSpeed: 0.5,
+  };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 }); // per-tap fires
+
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+  // Half-cycle = 125 / 0.5 = 250ms. Total per-tap = 500ms.
+  clock.advance(249);
+  assert.ok(document.body.classList.contains('inverted'), 'still inverted at 249ms');
+  clock.advance(1);
+  assert.ok(!document.body.classList.contains('inverted'), 'inverted removed at 250ms');
+  assert.strictEqual(renderer._isPerTapRunning(), true, 'still in revert phase');
+  clock.advance(250);
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'done at 500ms total');
+});
+
+test('user defaults round-trip transitionSpeed and flashSpeed', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { transitionSpeed: 1.5, flashSpeed: 2.0 } }));
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+
+  handleMessage(JSON.stringify({ type: 'patch', patch: { transitionSpeed: 0.5, flashSpeed: 0.5 } }));
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+  assert.strictEqual(getState().transitionSpeed, 1.5);
+  assert.strictEqual(getState().flashSpeed, 2.0);
+  resetState();
+});
+
+test('factory defaults reset both speeds to 1.0', () => {
+  resetState();
+  handleMessage(JSON.stringify({ type: 'patch', patch: { transitionSpeed: 2.5, flashSpeed: 0.3 } }));
+  handleMessage(JSON.stringify({ type: 'reset-to-factory-defaults' }));
+  assert.strictEqual(getState().transitionSpeed, 1.0);
+  assert.strictEqual(getState().flashSpeed, 1.0);
+  resetState();
+});
+
+// ---------------------------------------------------------------------------
 // Shutdown and reboot power controls
 
 test('shutdown action sets shuttingDown: true', () => {

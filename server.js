@@ -36,6 +36,8 @@ const DEFAULT_STATE = {
   minDigits: 0,
   fadeLeadingZeros: 30,
   useCommas: true,
+  transitionSpeed: 1.0,
+  flashSpeed: 1.0,
   shuttingDown: false,
   rebooting: false,
   userDefaults: null,
@@ -67,6 +69,8 @@ const PATCH_KEYS = new Set([
   'minDigits',
   'fadeLeadingZeros',
   'useCommas',
+  'transitionSpeed',
+  'flashSpeed',
 ]);
 
 function listFonts() {
@@ -212,6 +216,15 @@ function handleMessage(raw) {
         // Clamp letterSpacing to valid range.
         if (msg.patch.letterSpacing !== undefined) {
           state.letterSpacing = Math.max(-20, Math.min(100, Number(state.letterSpacing) || 0));
+        }
+        // Clamp speed multipliers to 0.25–3.0.
+        if (msg.patch.transitionSpeed !== undefined) {
+          var ts = Number(state.transitionSpeed);
+          state.transitionSpeed = Math.max(0.25, Math.min(3.0, isNaN(ts) ? 1 : ts));
+        }
+        if (msg.patch.flashSpeed !== undefined) {
+          var fs = Number(state.flashSpeed);
+          state.flashSpeed = Math.max(0.25, Math.min(3.0, isNaN(fs) ? 1 : fs));
         }
       }
       break;

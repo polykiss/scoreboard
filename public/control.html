@@ -405,6 +405,20 @@
       </select>
     </div>
 
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Animation speed</label>
+    </div>
+
+    <div class="field">
+      <label>Transition speed <span class="value" id="transitionSpeedValue"></span></label>
+      <input type="range" id="transitionSpeed" min="0.25" max="3" step="0.05">
+    </div>
+
+    <div class="field">
+      <label>Flash speed <span class="value" id="flashSpeedValue"></span></label>
+      <input type="range" id="flashSpeed" min="0.25" max="3" step="0.05">
+    </div>
+
     <div class="field toggle-row">
       <label>Glow</label>
       <input type="checkbox" id="glow">
@@ -523,6 +537,10 @@
     const offsetYEl     = document.getElementById('offsetY');
     const offsetYValue  = document.getElementById('offsetYValue');
     const transitionStyleEl = document.getElementById('transitionStyle');
+    const transitionSpeedEl    = document.getElementById('transitionSpeed');
+    const transitionSpeedValue = document.getElementById('transitionSpeedValue');
+    const flashSpeedEl         = document.getElementById('flashSpeed');
+    const flashSpeedValue      = document.getElementById('flashSpeedValue');
     const glowEl        = document.getElementById('glow');
     const glowColorEl   = document.getElementById('glowColor');
     const glowDistanceEl     = document.getElementById('glowDistance');
@@ -559,7 +577,7 @@
       el.addEventListener('blur',          stop);
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
-     glowColorEl, setInput, fontSelectEl, transitionStyleEl,
+     glowColorEl, setInput, fontSelectEl, transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
@@ -609,6 +627,11 @@
           .some((o) => o.value === state.transitionStyle);
         if (hasOption) transitionStyleEl.value = state.transitionStyle;
       }
+      if (!interacting.has(transitionSpeedEl)) transitionSpeedEl.value = state.transitionSpeed;
+      transitionSpeedValue.textContent = state.transitionSpeed + 'x';
+      if (!interacting.has(flashSpeedEl)) flashSpeedEl.value = state.flashSpeed;
+      flashSpeedValue.textContent = state.flashSpeed + 'x';
+
       glowEl.checked  = !!state.glow;
 
       if (!interacting.has(minDigitsEl)) minDigitsEl.value = state.minDigits;
@@ -797,6 +820,16 @@
     });
     transitionStyleEl.addEventListener('change',
       () => patch({ transitionStyle: transitionStyleEl.value }));
+    transitionSpeedEl.addEventListener('input', () => {
+      const v = parseFloat(transitionSpeedEl.value);
+      transitionSpeedValue.textContent = v + 'x';
+      patch({ transitionSpeed: v });
+    });
+    flashSpeedEl.addEventListener('input', () => {
+      const v = parseFloat(flashSpeedEl.value);
+      flashSpeedValue.textContent = v + 'x';
+      patch({ flashSpeed: v });
+    });
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
     minDigitsEl.addEventListener('change', () => {
       const v = parseInt(minDigitsEl.value, 10);
