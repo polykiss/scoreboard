@@ -112,8 +112,93 @@
       }
     }
 
-    function formatCount(n) {
-      return Number(n).toLocaleString('en-US');
+    function formatCount(n, state) {
+      var str = Number(n).toLocaleString('en-US');
+      var minDigits = (state && Number(state.minDigits)) || 0;
+      if (minDigits <= 0) return str;
+      // Count actual digit characters (exclude commas).
+      var digitCount = 0;
+      for (var i = 0; i < str.length; i++) {
+        if (str[i] >= '0' && str[i] <= '9') digitCount++;
+      }
+      var needed = minDigits - digitCount;
+      if (needed <= 0) return str;
+      // Prepend leading zeros. With commas, we need to reformat:
+      // pad the raw number string then apply locale formatting.
+      var raw = String(Math.abs(Number(n)));
+      raw = new Array(needed + 1).join('0') + raw;
+      // Re-insert commas by formatting the padded string manually.
+      var result = '';
+      var dCount = 0;
+      for (var j = raw.length - 1; j >= 0; j--) {
+        if (dCount > 0 && dCount % 3 === 0) result = ',' + result;
+        result = raw[j] + result;
+        dCount++;
+      }
+      return result;
+    }
+
+    // Determine which characters are "leading zeros" for fade purposes.
+    // Returns an array of booleans, one per character in the formatted text.
+    function findLeadingZeros(text) {
+      var result = [];
+      var foundNonZero = false;
+      for (var i = 0; i < text.length; i++) {
+        var ch = text[i];
+        if (!foundNonZero && ch === '0') {
+          result.push(true);
+        } else if (!foundNonZero && ch === ',') {
+          // Comma in the leading-zero region: faded.
+          result.push(true);
+        } else {
+          foundNonZero = true;
+          result.push(false);
+        }
+      }
+      return result;
+    }
+
+    // Apply opacity and glow suppression to leading-zero digits.
+    function applyLeadingZeroFade(state) {
+      var fadePercent = Number(state.fadeLeadingZeros);
+      if (isNaN(fadePercent)) fadePercent = 100;
+      var fadeAlpha = Math.min(Math.max(fadePercent, 0), 100) / 100;
+      var minDigits = Number(state.minDigits) || 0;
+      if (minDigits <= 0) return;
+
+      var digits = countEl.querySelectorAll('.digit');
+      var leading = findLeadingZeros(displayedText);
+
+      // Compute glow shadow string for active digits (reusable).
+      var glowShadow = '';
+      if (state.glow) {
+        var d = Number(state.glowDistance) || 0;
+        var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
+        var hex = state.glowColor || '#ffffff';
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        var rgba = 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+        glowShadow = '0 0 ' + d + 'px ' + rgba + ', 0 0 ' + (d * 2) + 'px ' + rgba;
+      }
+
+      for (var i = 0; i < digits.length; i++) {
+        if (leading[i]) {
+          digits[i].style.opacity = String(fadeAlpha);
+          // Suppress glow on faded digits.
+          if (fadeAlpha < 1) {
+            digits[i].style.textShadow = 'none';
+          }
+        } else {
+          digits[i].style.opacity = '';
+          // Active digits get per-element glow if the parent glow is on.
+          if (state.glow && glowShadow) {
+            digits[i].style.textShadow = glowShadow;
+          } else {
+            digits[i].style.textShadow = '';
+          }
+        }
+      }
     }
 
     // Render count as per-digit <span class="digit"> elements.
@@ -126,7 +211,10 @@
         countEl.appendChild(span);
       }
       displayedText = text;
-      if (latestState) applyDigitWidths(latestState);
+      if (latestState) {
+        applyDigitWidths(latestState);
+        applyLeadingZeroFade(latestState);
+      }
     }
 
     // Compare two formatted strings and return indices of changed positions.
@@ -179,7 +267,10 @@
         s.style.textAlign = '';
         s.className = 'digit';
       }
-      if (latestState) applyDigitWidths(latestState);
+      if (latestState) {
+        applyDigitWidths(latestState);
+        applyLeadingZeroFade(latestState);
+      }
     }
 
     // Start a transition from oldText to newText.
@@ -381,7 +472,7 @@
     // Main count update: run transition then check flash.
     function doCountUpdate(state) {
       var newCount = state.count;
-      var newText = formatCount(newCount);
+      var newText = formatCount(newCount, state);
       var oldText = displayedText;
       var preCount = lastCount;
 
@@ -420,7 +511,11 @@
         '|' + (state.letterSpacing || 0);
       if (newFontKey !== measuredFontKey) measuredDigitWidth = 0;
 
-      if (state.glow) {
+      // Glow: when minDigits > 0, glow is applied per-digit (so we can
+      // suppress it on faded leading zeros). Otherwise applied on the
+      // parent countEl for simplicity.
+      var hasLeadingZeroPadding = (Number(state.minDigits) || 0) > 0;
+      if (state.glow && !hasLeadingZeroPadding) {
         var d = Number(state.glowDistance) || 0;
         var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
         var hex = state.glowColor || '#ffffff';
@@ -431,6 +526,7 @@
         countEl.style.textShadow =
           '0 0 ' + d + 'px ' + rgba + ', 0 0 ' + (d * 2) + 'px ' + rgba;
       } else {
+        // Clear parent glow; per-digit glow handled by applyLeadingZeroFade.
         countEl.style.textShadow = 'none';
       }
 
@@ -447,7 +543,7 @@
       // First applyState or same count — just render (no transition).
       if (lastCount === null || newCount === lastCount) {
         lastCount = newCount;
-        var text = formatCount(newCount);
+        var text = formatCount(newCount, state);
         if (text !== displayedText) renderDigits(text);
         return;
       }

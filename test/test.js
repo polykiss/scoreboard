@@ -1188,6 +1188,106 @@ test('forceMonospacedDigits true produces fixed-width digit slots', () => {
   assert.strictEqual(digits[0].style.width, digits[2].style.width, 'uniform width');
 });
 
+// ---------------------------------------------------------------------------
+// Minimum digit padding with leading-zero fade
+
+test('minDigits=4 pads count 42 to 0,042', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42, minDigits: 4 });
+  // 4 digits: "0042" → with commas: "0,042"
+  assert.strictEqual(countEl.textContent, '0,042');
+});
+
+test('minDigits=4 does not truncate count 12345', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 12345, minDigits: 4 });
+  assert.strictEqual(countEl.textContent, '12,345');
+});
+
+test('minDigits=0 applies no padding', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42, minDigits: 0 });
+  assert.strictEqual(countEl.textContent, '42');
+});
+
+test('fadeLeadingZeros=50 results in leading zeros having opacity 0.5', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42, minDigits: 4, fadeLeadingZeros: 50 });
+  const digits = countEl.querySelectorAll('.digit');
+  // "0,042": pos 0='0'(leading), pos 1=','(leading), pos 2='0'(leading),
+  // pos 3='4'(active), pos 4='2'(active).
+  assert.strictEqual(digits[0].style.opacity, '0.5', 'leading zero');
+  assert.strictEqual(digits[1].style.opacity, '0.5', 'comma in leading region');
+  assert.strictEqual(digits[2].style.opacity, '0.5', 'leading zero');
+  // Active digits have no opacity override.
+  assert.strictEqual(digits[3].style.opacity, '', 'active 4');
+  assert.strictEqual(digits[4].style.opacity, '', 'active 2');
+});
+
+test('leading-zero digits have no text-shadow when opacity < 100', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({
+    ...FLASH_BASE, count: 5, minDigits: 3, fadeLeadingZeros: 30,
+    glow: true, glowColor: '#ffffff', glowDistance: 20, glowIntensity: 80,
+  });
+  const digits = countEl.querySelectorAll('.digit');
+  // "005": positions 0,1 are leading zeros — glow suppressed.
+  assert.strictEqual(digits[0].style.textShadow, 'none', 'leading zero: no glow');
+  assert.strictEqual(digits[1].style.textShadow, 'none', 'leading zero: no glow');
+  // Active digit gets glow.
+  assert.ok(digits[2].style.textShadow !== 'none' && digits[2].style.textShadow !== '',
+    'active digit has glow');
+});
+
+test('active digits (opacity 100) retain their glow', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({
+    ...FLASH_BASE, count: 99, minDigits: 4, fadeLeadingZeros: 100,
+    glow: true, glowColor: '#ff0000', glowDistance: 10, glowIntensity: 50,
+  });
+  const digits = countEl.querySelectorAll('.digit');
+  // "0,099": active digits at positions 3,4 get per-digit glow.
+  assert.ok(digits[3].style.textShadow.includes('rgba'), 'active digit glow');
+  assert.ok(digits[4].style.textShadow.includes('rgba'), 'active digit glow');
+});
+
+test('comma fade: minDigits=7 count=42 fades comma between leading zeros', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 42, minDigits: 7, fadeLeadingZeros: 30 });
+  // 7 digits padded: "0000042" → with commas: "0,000,042" (9 chars).
+  assert.strictEqual(countEl.textContent, '0,000,042');
+  const digits = countEl.querySelectorAll('.digit');
+  // Leading region: 0 , 0 0 0 , 0 (positions 0-6).
+  assert.strictEqual(digits[0].style.opacity, '0.3', 'leading 0');
+  assert.strictEqual(digits[1].style.opacity, '0.3', 'comma in leading region');
+  assert.strictEqual(digits[2].style.opacity, '0.3', 'leading 0');
+  assert.strictEqual(digits[3].style.opacity, '0.3', 'leading 0');
+  assert.strictEqual(digits[4].style.opacity, '0.3', 'leading 0');
+  assert.strictEqual(digits[5].style.opacity, '0.3', 'comma in leading region');
+  assert.strictEqual(digits[6].style.opacity, '0.3', 'leading 0');
+  // Active region: 4, 2 (positions 7, 8).
+  assert.strictEqual(digits[7].style.opacity, '', 'active 4');
+  assert.strictEqual(digits[8].style.opacity, '', 'active 2');
+});
+
+test('transition detects changed positions with padding (9→10 minDigits=4)', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, transitionStyle: 'pulse-changed', minDigits: 4 };
+  renderer.applyState({ ...state, count: 9 });  // "0,009"
+  renderer.applyState({ ...state, count: 10 }); // "0,010"
+
+  // "0,009" → "0,010": 5 chars each. Positions 0,1,2 unchanged (0,,0).
+  // Position 3: 0→1 changed. Position 4: 9→0 changed.
+  const digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits.length, 5);
+  assert.ok(!digits[0].classList.contains('pulse'), 'pos 0 unchanged');
+  assert.ok(!digits[1].classList.contains('pulse'), 'pos 1 (comma) unchanged');
+  assert.ok(!digits[2].classList.contains('pulse'), 'pos 2 unchanged');
+  assert.ok(digits[3].classList.contains('pulse'), 'pos 3 changed');
+  assert.ok(digits[4].classList.contains('pulse'), 'pos 4 changed');
+  clock.advance(200);
+});
+
 test('forceMonospacedDigits false does not set digit widths', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 1234, forceMonospacedDigits: false });

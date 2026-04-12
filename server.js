@@ -32,6 +32,8 @@ const DEFAULT_STATE = {
   letterSpacing: 0,
   tabularNums: true,
   forceMonospacedDigits: true,
+  minDigits: 0,
+  fadeLeadingZeros: 30,
   userDefaults: null,
 };
 
@@ -58,6 +60,8 @@ const PATCH_KEYS = new Set([
   'letterSpacing',
   'tabularNums',
   'forceMonospacedDigits',
+  'minDigits',
+  'fadeLeadingZeros',
 ]);
 
 function listFonts() {

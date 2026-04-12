@@ -425,6 +425,16 @@
       <input type="checkbox" id="forceMonospacedDigits">
     </div>
 
+    <div class="field">
+      <label>Min digits <span class="value" id="minDigitsValue"></span></label>
+      <input type="number" id="minDigits" min="0" max="10" step="1">
+    </div>
+
+    <div class="field">
+      <label>Leading zero opacity <span class="value" id="fadeLeadingZerosValue"></span></label>
+      <input type="range" id="fadeLeadingZeros" min="0" max="100" step="1">
+    </div>
+
     <div class="field toggle-row">
       <label>Per-tap flash</label>
       <input type="checkbox" id="perTapFlashEnabled">
@@ -496,6 +506,10 @@
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
+    const minDigitsEl             = document.getElementById('minDigits');
+    const minDigitsValue          = document.getElementById('minDigitsValue');
+    const fadeLeadingZerosEl      = document.getElementById('fadeLeadingZeros');
+    const fadeLeadingZerosValue   = document.getElementById('fadeLeadingZerosValue');
     const tabularNumsEl          = document.getElementById('tabularNums');
     const forceMonospacedDigitsEl = document.getElementById('forceMonospacedDigits');
     const perTapFlashEnabledEl = document.getElementById('perTapFlashEnabled');
@@ -521,7 +535,7 @@
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
      glowColorEl, setInput, fontSelectEl, transitionStyleEl,
-     smallFlashIntervalEl, bigFlashIntervalEl]
+     minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -572,6 +586,10 @@
       }
       glowEl.checked  = !!state.glow;
 
+      if (!interacting.has(minDigitsEl)) minDigitsEl.value = state.minDigits;
+      minDigitsValue.textContent = state.minDigits;
+      if (!interacting.has(fadeLeadingZerosEl)) fadeLeadingZerosEl.value = state.fadeLeadingZeros;
+      fadeLeadingZerosValue.textContent = state.fadeLeadingZeros + '%';
       tabularNumsEl.checked = !!state.tabularNums;
       forceMonospacedDigitsEl.checked = !!state.forceMonospacedDigits;
       perTapFlashEnabledEl.checked = !!state.perTapFlashEnabled;
@@ -746,6 +764,18 @@
     transitionStyleEl.addEventListener('change',
       () => patch({ transitionStyle: transitionStyleEl.value }));
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
+    minDigitsEl.addEventListener('change', () => {
+      const v = parseInt(minDigitsEl.value, 10);
+      if (Number.isFinite(v) && v >= 0 && v <= 10) {
+        minDigitsValue.textContent = v;
+        patch({ minDigits: v });
+      }
+    });
+    fadeLeadingZerosEl.addEventListener('input', () => {
+      const v = parseInt(fadeLeadingZerosEl.value, 10);
+      fadeLeadingZerosValue.textContent = v + '%';
+      patch({ fadeLeadingZeros: v });
+    });
     tabularNumsEl.addEventListener('change',
       () => patch({ tabularNums: tabularNumsEl.checked }));
     forceMonospacedDigitsEl.addEventListener('change',
