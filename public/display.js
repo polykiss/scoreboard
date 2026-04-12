@@ -34,6 +34,10 @@
     let animationStep = 0;
     let animationTotalSteps = 0;
 
+    // Per-tap flash: single invert cycle (125ms on, 125ms off = 250ms).
+    // Does not lock the display — count updates flow normally.
+    let perTapRunning = false;
+
     function ensureFont(name) {
       if (loadedFonts.has(name)) return;
       loadedFonts.add(name);
@@ -94,6 +98,17 @@
       advanceAnimation();
     }
 
+    function startPerTapFlash() {
+      perTapRunning = true;
+      body.classList.add('inverted');
+      setTimeoutFn(function () {
+        body.classList.remove('inverted');
+        setTimeoutFn(function () {
+          perTapRunning = false;
+        }, FLASH_HALF_MS);
+      }, FLASH_HALF_MS);
+    }
+
     function checkMilestone(state, newCount) {
       const bigEnabled = state.bigFlashEnabled
         && Number(state.bigFlashInterval) > 0
@@ -150,22 +165,32 @@
       const newCount = state.count;
       const prev = lastCount;
 
+      let milestoneStarting = false;
       if (!animationLocked && prev !== null && newCount > prev) {
         const cycles = checkMilestone(state, newCount);
         if (cycles > 0) {
+          milestoneStarting = true;
           lastCount = newCount;
           latestCount = newCount;
           startFlash(newCount, cycles);
-          return;
         }
       }
 
-      // Track the latest known count regardless of lock — used for
-      // catch-up after the animation ends.
-      latestCount = newCount;
-      lastCount = newCount;
+      if (!milestoneStarting) {
+        // Track the latest known count regardless of lock — used for
+        // catch-up after the animation ends.
+        latestCount = newCount;
+        lastCount = newCount;
+      }
 
-      if (!animationLocked) {
+      // Per-tap flash: fires on strict increment, skips if milestone is
+      // starting or already running, skips if another per-tap is in progress.
+      if (!milestoneStarting && !animationLocked && !perTapRunning
+          && state.perTapFlashEnabled && prev !== null && newCount > prev) {
+        startPerTapFlash();
+      }
+
+      if (!animationLocked && !milestoneStarting) {
         const changed = prev !== null && prev !== newCount;
         writeCount(newCount);
         if (changed && state.flashOnUpdate) {
@@ -185,6 +210,7 @@
       _isLocked() { return animationLocked; },
       _getLastCount() { return lastCount; },
       _getLatestCount() { return latestCount; },
+      _isPerTapRunning() { return perTapRunning; },
     };
   }
 

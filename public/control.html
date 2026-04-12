@@ -361,6 +361,11 @@
     </div>
 
     <div class="field toggle-row">
+      <label>Per-tap flash</label>
+      <input type="checkbox" id="perTapFlashEnabled">
+    </div>
+
+    <div class="field toggle-row">
       <label>Small flash</label>
       <input type="checkbox" id="smallFlashEnabled">
     </div>
@@ -419,6 +424,7 @@
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
+    const perTapFlashEnabledEl = document.getElementById('perTapFlashEnabled');
     const smallFlashEnabledEl  = document.getElementById('smallFlashEnabled');
     const smallFlashIntervalEl = document.getElementById('smallFlashInterval');
     const bigFlashEnabledEl    = document.getElementById('bigFlashEnabled');
@@ -487,6 +493,7 @@
       flashEl.checked = !!state.flashOnUpdate;
       glowEl.checked  = !!state.glow;
 
+      perTapFlashEnabledEl.checked = !!state.perTapFlashEnabled;
       smallFlashEnabledEl.checked = !!state.smallFlashEnabled;
       bigFlashEnabledEl.checked   = !!state.bigFlashEnabled;
       if (!interacting.has(smallFlashIntervalEl))
@@ -601,6 +608,8 @@
     });
     flashEl.addEventListener('change',    () => patch({ flashOnUpdate: flashEl.checked }));
     fontSelectEl.addEventListener('change', () => patch({ selectedFont: fontSelectEl.value }));
+    perTapFlashEnabledEl.addEventListener('change',
+      () => patch({ perTapFlashEnabled: perTapFlashEnabledEl.checked }));
     smallFlashEnabledEl.addEventListener('change',
       () => patch({ smallFlashEnabled: smallFlashEnabledEl.checked }));
     bigFlashEnabledEl.addEventListener('change',

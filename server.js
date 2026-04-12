@@ -28,6 +28,7 @@ const DEFAULT_STATE = {
   smallFlashInterval: 10,
   bigFlashEnabled: true,
   bigFlashInterval: 100,
+  perTapFlashEnabled: true,
   letterSpacing: 0,
 };
 
@@ -50,6 +51,7 @@ const PATCH_KEYS = new Set([
   'smallFlashInterval',
   'bigFlashEnabled',
   'bigFlashInterval',
+  'perTapFlashEnabled',
   'letterSpacing',
 ]);
 

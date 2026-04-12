@@ -334,6 +334,107 @@ test('milestone fires after animation ends when new increment lands on interval'
 });
 
 // ---------------------------------------------------------------------------
+// Per-tap flash
+
+const PER_TAP_BASE = {
+  ...DEFAULT_STATE,
+  flashOnUpdate: false,
+  perTapFlashEnabled: true,
+  smallFlashEnabled: false,
+  bigFlashEnabled: false,
+};
+
+test('per-tap flash fires on increment', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 6 });
+  assert.ok(document.body.classList.contains('inverted'), 'body inverted on increment');
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+
+  // 125ms: remove inverted
+  clock.advance(125);
+  assert.ok(!document.body.classList.contains('inverted'), 'inverted removed at 125ms');
+  assert.strictEqual(renderer._isPerTapRunning(), true, 'still running through revert phase');
+
+  // 250ms: per-tap done
+  clock.advance(125);
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'done at 250ms');
+});
+
+test('per-tap flash skips on decrement', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 10 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 9 });
+  assert.ok(!document.body.classList.contains('inverted'));
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+});
+
+test('per-tap flash skips on reset (count goes to 0)', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 10 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 0 });
+  assert.ok(!document.body.classList.contains('inverted'));
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+});
+
+test('per-tap flash skips on unchanged count', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 });
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+});
+
+test('per-tap flash skips when milestone flash is active', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  const state = { ...PER_TAP_BASE, smallFlashEnabled: true, smallFlashInterval: 10 };
+  renderer.applyState({ ...state, count: 9 });
+  renderer.applyState({ ...state, count: 10 }); // milestone fires
+  assert.strictEqual(renderer._isLocked(), true);
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'per-tap skipped for milestone');
+
+  // Increment during milestone lock — per-tap should also be skipped
+  renderer.applyState({ ...state, count: 11 });
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'per-tap skipped during lock');
+});
+
+test('per-tap flash skips when another per-tap is already running', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 6 }); // per-tap starts
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+
+  // Another increment while per-tap is running
+  renderer.applyState({ ...PER_TAP_BASE, count: 7 });
+  // The first per-tap should still be running, no second one started
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+
+  // Drain the first per-tap
+  clock.advance(250);
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+});
+
+test('per-tap flash does not lock the display', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 });
+  renderer.applyState({ ...PER_TAP_BASE, count: 6 });
+  assert.strictEqual(renderer._isPerTapRunning(), true);
+  assert.strictEqual(renderer._isLocked(), false, 'display NOT locked');
+
+  // Count updates should flow through during per-tap
+  renderer.applyState({ ...PER_TAP_BASE, count: 7 });
+  assert.strictEqual(countEl.textContent, '7', 'count updates normally during per-tap');
+});
+
+test('per-tap flash disabled when perTapFlashEnabled is false', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  const state = { ...PER_TAP_BASE, perTapFlashEnabled: false };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 6 });
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+  assert.ok(!document.body.classList.contains('inverted'));
+});
+
+// ---------------------------------------------------------------------------
 // Controller — press-state feedback on +1/-1
 
 function loadControlHtml() {
