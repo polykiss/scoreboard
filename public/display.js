@@ -124,6 +124,7 @@
       // — without it, font-size slider changes leave stale slot heights
       // and the flex-centered count drifts vertically.
       measureDigitDimensions(state);
+      var spacing = (Number(state.letterSpacing) || 0);
       var digits = countEl.querySelectorAll('.digit');
       for (var i = 0; i < digits.length; i++) {
         var ch = slotChar(digits[i]);
@@ -133,6 +134,10 @@
           digits[i].style.width = measuredCommaWidth + 'px';
         }
         digits[i].style.height = measuredDigitHeight + 'px';
+        // CSS letter-spacing has no effect on fixed-width inline-block
+        // slots, so apply spacing via margin-left on every slot after
+        // the first.
+        digits[i].style.marginLeft = (i > 0 ? spacing : 0) + 'px';
       }
     }
 
@@ -192,7 +197,7 @@
       if (state.glow) {
         var d = Number(state.glowDistance) || 0;
         var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
-        var hex = state.glowColor || '#ffffff';
+        var hex = state.countColor || '#ffffff';
         var r = parseInt(hex.slice(1, 3), 16);
         var g = parseInt(hex.slice(3, 5), 16);
         var b = parseInt(hex.slice(5, 7), 16);
@@ -227,6 +232,7 @@
     function renderDigits(text) {
       var st = latestState || {};
       measureDigitDimensions(st);
+      var spacing = (Number(st.letterSpacing) || 0);
       countEl.innerHTML = '';
       for (var i = 0; i < text.length; i++) {
         var ch = text[i];
@@ -244,6 +250,7 @@
         } else {
           slot.style.width = measuredCommaWidth + 'px';
         }
+        if (i > 0) slot.style.marginLeft = spacing + 'px';
         // Character is always absolutely positioned inside the slot.
         var charEl = document.createElement('span');
         charEl.className = 'digit-char';
@@ -556,7 +563,9 @@
       }
 
       applyFont(state.selectedFont);
-      countEl.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
+      // Letter spacing is applied as margin-left on each slot in
+      // applyDigitWidths — CSS letter-spacing has no effect on
+      // fixed-width inline-block slots.
 
       // Tabular numerics — CSS feature for fonts that support it.
       countEl.style.fontVariantNumeric = state.tabularNums ? 'tabular-nums' : '';
@@ -572,7 +581,7 @@
       if (state.glow && !hasLeadingZeroPadding) {
         var d = Number(state.glowDistance) || 0;
         var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
-        var hex = state.glowColor || '#ffffff';
+        var hex = state.countColor || '#ffffff';
         var r = parseInt(hex.slice(1, 3), 16);
         var g = parseInt(hex.slice(3, 5), 16);
         var b = parseInt(hex.slice(5, 7), 16);

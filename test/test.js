@@ -96,6 +96,7 @@ function createFakeClock() {
 const FLASH_BASE = {
   ...DEFAULT_STATE,
   transitionStyle: 'none', // keep the pulse animation out of assertions
+  minDigits: 0,            // avoid zero-padding in flash tests
   smallFlashEnabled: true,
   smallFlashInterval: 10,
   bigFlashEnabled: true,
@@ -342,6 +343,7 @@ test('milestone fires after animation ends when new increment lands on interval'
 const PER_TAP_BASE = {
   ...DEFAULT_STATE,
   transitionStyle: 'none',
+  minDigits: 0,
   perTapFlashEnabled: true,
   smallFlashEnabled: false,
   bigFlashEnabled: false,
@@ -438,12 +440,14 @@ test('per-tap flash disabled when perTapFlashEnabled is false', () => {
 });
 
 test('per-tap flash fires with full DEFAULT_STATE (milestones enabled)', () => {
-  // Matches real-world scenario: all defaults active, non-milestone increment.
+  // Matches real-world scenario: all defaults active except perTapFlash
+  // must be enabled explicitly (default is now off).
   // DEFAULT_STATE has transitionStyle: 'pulse-changed' (200ms), so per-tap
   // fires after the transition completes.
   const { renderer, document, countEl, clock } = setupRenderer(true);
-  renderer.applyState({ ...DEFAULT_STATE, count: 0 }); // initial state
-  renderer.applyState({ ...DEFAULT_STATE, count: 1 }); // +1, no milestone
+  const state = { ...DEFAULT_STATE, perTapFlashEnabled: true, minDigits: 0 };
+  renderer.applyState({ ...state, count: 0 }); // initial state
+  renderer.applyState({ ...state, count: 1 }); // +1, no milestone
 
   // Transition playing — no flash yet.
   assert.strictEqual(renderer._isTransitioning(), true);
@@ -586,20 +590,25 @@ test('patch with flash state keys updates server state', () => {
 // ---------------------------------------------------------------------------
 // Letter spacing
 
-test('letter spacing slider value propagates to rendered letter-spacing CSS', () => {
+test('letter spacing slider value propagates to slot margin-left', () => {
   const { document, countEl, offsetEl } = setupRenderer();
   const renderer = createRenderer({
     document, body: document.body, offsetEl, countEl,
   });
 
-  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: 0 });
-  assert.strictEqual(countEl.style.letterSpacing, '0px');
+  renderer.applyState({ ...DEFAULT_STATE, count: 12, minDigits: 0, letterSpacing: 0 });
+  var digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[0].style.marginLeft, '0px');
+  assert.strictEqual(digits[1].style.marginLeft, '0px');
 
-  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: 20 });
-  assert.strictEqual(countEl.style.letterSpacing, '20px');
+  renderer.applyState({ ...DEFAULT_STATE, count: 12, minDigits: 0, letterSpacing: 20 });
+  digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[0].style.marginLeft, '0px', 'first slot has no margin');
+  assert.strictEqual(digits[1].style.marginLeft, '20px', 'second slot has 20px margin');
 
-  renderer.applyState({ ...DEFAULT_STATE, count: 0, letterSpacing: -5 });
-  assert.strictEqual(countEl.style.letterSpacing, '-5px');
+  renderer.applyState({ ...DEFAULT_STATE, count: 12, minDigits: 0, letterSpacing: -5 });
+  digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '-5px', 'negative spacing supported');
 });
 
 test('letterSpacing is patchable on the server', () => {
@@ -621,8 +630,11 @@ test('letter spacing server patch renders on display', () => {
     document, body: document.body, offsetEl, countEl,
   });
   renderer.applyState(serverState);
-  assert.strictEqual(countEl.style.letterSpacing, '25px',
-    'display should render letter-spacing from server state');
+  // Letter spacing is applied as margin-left on digit slots.
+  const digits = countEl.querySelectorAll('.digit');
+  assert.ok(digits.length > 1, 'should have multiple digit slots');
+  assert.strictEqual(digits[1].style.marginLeft, '25px',
+    'display should render letter-spacing as margin from server state');
   resetState();
 });
 
@@ -648,9 +660,10 @@ test('factory defaults: flashes on, glow on, correct values', () => {
   assert.strictEqual(DEFAULT_STATE.smallFlashEnabled, true);
   assert.strictEqual(DEFAULT_STATE.bigFlashEnabled, true);
   assert.strictEqual(DEFAULT_STATE.glow, true);
-  assert.strictEqual(DEFAULT_STATE.glowColor, '#ffffff');
   assert.strictEqual(DEFAULT_STATE.glowDistance, 15);
   assert.strictEqual(DEFAULT_STATE.glowIntensity, 80);
+  assert.strictEqual(DEFAULT_STATE.countColor, '#ffffff');
+  assert.strictEqual(DEFAULT_STATE.glowColor, undefined, 'glowColor removed — uses countColor');
 });
 
 test('glowDistance and glowIntensity are patchable', () => {
@@ -671,7 +684,7 @@ test('changing distance does not affect intensity in rendered text-shadow', () =
     document, body: document.body, offsetEl, countEl,
   });
 
-  const base = { ...DEFAULT_STATE, glow: true, glowColor: '#ff0000', glowIntensity: 60 };
+  const base = { ...DEFAULT_STATE, glow: true, countColor: '#ff0000', glowIntensity: 60, minDigits: 0 };
 
   renderer.applyState({ ...base, count: 0, glowDistance: 10 });
   const shadow1 = countEl.style.textShadow;
@@ -697,7 +710,7 @@ test('changing intensity does not affect distance in rendered text-shadow', () =
     document, body: document.body, offsetEl, countEl,
   });
 
-  const base = { ...DEFAULT_STATE, glow: true, glowColor: '#00ff00', glowDistance: 30 };
+  const base = { ...DEFAULT_STATE, glow: true, countColor: '#00ff00', glowDistance: 30, minDigits: 0 };
 
   renderer.applyState({ ...base, count: 0, glowIntensity: 20 });
   const shadow1 = countEl.style.textShadow;
@@ -722,8 +735,8 @@ test('glow distance zero disables glow visually', () => {
   });
 
   renderer.applyState({
-    ...DEFAULT_STATE, glow: true, glowColor: '#ffffff',
-    glowDistance: 0, glowIntensity: 80, count: 0,
+    ...DEFAULT_STATE, glow: true, countColor: '#ffffff',
+    glowDistance: 0, glowIntensity: 80, count: 0, minDigits: 0,
   });
   // With distance=0, blur is 0px — effectively invisible.
   assert.ok(countEl.style.textShadow.includes('0px'), 'blur should be 0px');
@@ -736,8 +749,8 @@ test('glow intensity zero disables glow visually', () => {
   });
 
   renderer.applyState({
-    ...DEFAULT_STATE, glow: true, glowColor: '#ffffff',
-    glowDistance: 30, glowIntensity: 0, count: 0,
+    ...DEFAULT_STATE, glow: true, countColor: '#ffffff',
+    glowDistance: 30, glowIntensity: 0, count: 0, minDigits: 0,
   });
   // With intensity=0, alpha is 0 — fully transparent.
   assert.ok(countEl.style.textShadow.includes(',0)'), 'alpha should be 0');
@@ -821,7 +834,8 @@ test('reset-to-factory-defaults resets all state but preserves userDefaults', ()
 test('default state includes userDefaults: null', () => {
   assert.strictEqual(DEFAULT_STATE.userDefaults, null);
   assert.strictEqual(DEFAULT_STATE.letterSpacing, 0);
-  assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, true);
+  assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, false);
+  assert.strictEqual(DEFAULT_STATE.minDigits, 4);
 });
 
 // ---------------------------------------------------------------------------
@@ -1362,11 +1376,13 @@ test('letterSpacing updates live without a count change', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   const base = { ...FLASH_BASE, count: 42, letterSpacing: 0 };
   renderer.applyState(base);
-  assert.strictEqual(countEl.style.letterSpacing, '0px');
+  var digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '0px');
 
   // Same count, different letterSpacing.
   renderer.applyState({ ...base, letterSpacing: 20 });
-  assert.strictEqual(countEl.style.letterSpacing, '20px',
+  digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '20px',
     'letterSpacing updates without count change');
 });
 
@@ -1386,7 +1402,7 @@ test('glow updates live without a count change', () => {
   renderer.applyState(base);
   assert.strictEqual(countEl.style.textShadow, 'none');
 
-  renderer.applyState({ ...base, glow: true, glowDistance: 20, glowIntensity: 50, glowColor: '#ff0000' });
+  renderer.applyState({ ...base, glow: true, glowDistance: 20, glowIntensity: 50, countColor: '#ff0000' });
   assert.ok(countEl.style.textShadow.includes('rgba'), 'glow applied live');
 });
 
@@ -1486,7 +1502,7 @@ test('leading-zero digits have no text-shadow when opacity < 100', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({
     ...FLASH_BASE, count: 5, minDigits: 3, fadeLeadingZeros: 30,
-    glow: true, glowColor: '#ffffff', glowDistance: 20, glowIntensity: 80,
+    glow: true, countColor: '#ffffff', glowDistance: 20, glowIntensity: 80,
   });
   const digits = countEl.querySelectorAll('.digit');
   // "005": positions 0,1 are leading zeros — glow suppressed.
@@ -1501,7 +1517,7 @@ test('active digits (opacity 100) retain their glow', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({
     ...FLASH_BASE, count: 99, minDigits: 4, fadeLeadingZeros: 100,
-    glow: true, glowColor: '#ff0000', glowDistance: 10, glowIntensity: 50,
+    glow: true, countColor: '#ff0000', glowDistance: 10, glowIntensity: 50,
   });
   const digits = countEl.querySelectorAll('.digit');
   // "0,099": active digits at positions 3,4 get per-digit glow.
@@ -1797,16 +1813,18 @@ test('letterSpacing change without count change updates DOM immediately', () => 
   const { clock, renderer, countEl } = setupRenderer(true);
 
   // Initial state with letterSpacing 0.
-  renderer.applyState({ ...DEFAULT_STATE, count: 5, letterSpacing: 0 });
+  renderer.applyState({ ...DEFAULT_STATE, count: 15, minDigits: 0, letterSpacing: 0 });
 
-  const spacingBefore = countEl.style.letterSpacing;
+  var digits = countEl.querySelectorAll('.digit');
+  const spacingBefore = digits[1].style.marginLeft;
 
   // Change only letterSpacing — no count change.
-  renderer.applyState({ ...DEFAULT_STATE, count: 5, letterSpacing: 20 });
+  renderer.applyState({ ...DEFAULT_STATE, count: 15, minDigits: 0, letterSpacing: 20 });
 
-  const spacingAfter = countEl.style.letterSpacing;
+  digits = countEl.querySelectorAll('.digit');
+  const spacingAfter = digits[1].style.marginLeft;
   assert.strictEqual(spacingAfter, '20px',
-    'letterSpacing CSS property should update immediately');
+    'letterSpacing margin should update immediately');
   assert.notStrictEqual(spacingBefore, spacingAfter,
     'spacing should differ from before');
 });
@@ -1815,34 +1833,36 @@ test('all visual style fields update live without count change (8984ea6 regressi
   const { clock, renderer, countEl, document } = setupRenderer(true);
 
   // Render initial state.
-  renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 400,
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, minDigits: 0, fontSize: 400,
     letterSpacing: 0, glow: true, glowDistance: 15 });
 
   // Change several visual-only properties without changing count.
-  renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 200,
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, minDigits: 0, fontSize: 200,
     letterSpacing: 10, glow: false });
 
   assert.strictEqual(countEl.style.fontSize, '200px', 'fontSize updated');
-  assert.strictEqual(countEl.style.letterSpacing, '10px', 'letterSpacing updated');
+  var digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '10px', 'letterSpacing updated');
   assert.strictEqual(countEl.style.textShadow, 'none', 'glow cleared');
 });
 
 test('transitionStyle change then count change renders correctly', () => {
   const { clock, renderer, countEl } = setupRenderer(true);
+  const base = { ...DEFAULT_STATE, minDigits: 0 };
 
   // Start with transitionStyle 'none' at count 5.
-  renderer.applyState({ ...DEFAULT_STATE, count: 5, transitionStyle: 'none' });
+  renderer.applyState({ ...base, count: 5, transitionStyle: 'none' });
   assert.strictEqual(renderer._getDisplayedText(), '5');
 
   // Change transitionStyle to 'slide' (no count change).
-  renderer.applyState({ ...DEFAULT_STATE, count: 5, transitionStyle: 'slide' });
+  renderer.applyState({ ...base, count: 5, transitionStyle: 'slide' });
   assert.strictEqual(renderer._getDisplayedText(), '5',
     'displayedText unchanged after style-only update');
   assert.strictEqual(renderer._getLastCount(), 5,
     'lastCount unchanged after style-only update');
 
   // Now increment count — this must render despite the style change.
-  renderer.applyState({ ...DEFAULT_STATE, count: 6, transitionStyle: 'slide' });
+  renderer.applyState({ ...base, count: 6, transitionStyle: 'slide' });
 
   // The slide transition is running.  Advance past it.
   clock.advance(500);
@@ -1855,13 +1875,14 @@ test('transitionStyle change then count change renders correctly', () => {
 
 test('count change renders when transitionStyle and count change in same broadcast', () => {
   const { clock, renderer, countEl } = setupRenderer(true);
+  const base = { ...DEFAULT_STATE, minDigits: 0 };
 
   // Start with 'none' at count 10.
-  renderer.applyState({ ...DEFAULT_STATE, count: 10, transitionStyle: 'none' });
+  renderer.applyState({ ...base, count: 10, transitionStyle: 'none' });
   assert.strictEqual(renderer._getDisplayedText(), '10');
 
   // Single broadcast changes BOTH transitionStyle and count.
-  renderer.applyState({ ...DEFAULT_STATE, count: 11, transitionStyle: 'crossfade' });
+  renderer.applyState({ ...base, count: 11, transitionStyle: 'crossfade' });
   clock.advance(500);
 
   assert.strictEqual(renderer._getDisplayedText(), '11',
@@ -1904,7 +1925,7 @@ test('comma slot width is narrower than digit slot width', () => {
 test('character at rest has full opacity and default white color', () => {
   const { clock, renderer, countEl } = setupRenderer(true);
 
-  renderer.applyState({ ...DEFAULT_STATE, count: 42 });
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, minDigits: 0 });
 
   // countEl should have explicit white color (default countColor).
   assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
@@ -1940,15 +1961,15 @@ test('state with countColor #ff0000 renders count characters in red', () => {
     'count element should be red when countColor is #ff0000');
 });
 
-test('glow color remains independent of count color', () => {
+test('glow renders using countColor', () => {
   const { clock, renderer, countEl } = setupRenderer(true);
 
   renderer.applyState({
     ...DEFAULT_STATE,
     count: 5,
+    minDigits: 0,
     countColor: '#ff0000',
     glow: true,
-    glowColor: '#00ff00',
     glowDistance: 10,
     glowIntensity: 80,
   });
@@ -1957,9 +1978,9 @@ test('glow color remains independent of count color', () => {
   assert.strictEqual(countEl.style.color, 'rgb(255, 0, 0)',
     'count color should be red');
 
-  // Glow color should contain the green glow, not red.
-  assert.ok(countEl.style.textShadow.includes('rgba(0,255,0,'),
-    'glow should use glowColor (#00ff00), not countColor');
+  // Glow should also be red (derived from countColor).
+  assert.ok(countEl.style.textShadow.includes('rgba(255,0,0,'),
+    'glow should use countColor (#ff0000)');
 });
 
 test('live update: changing countColor without count change updates immediately', () => {
@@ -1994,4 +2015,97 @@ test('countColor participates in user defaults round-trip', () => {
   // Reset to user defaults — should restore.
   handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
   assert.strictEqual(getState().countColor, '#abcdef');
+});
+
+// ---------------------------------------------------------------------------
+// Letter spacing via margin-left
+
+test('letter spacing margin is consistent across font sizes', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  // At font size 200 with letterSpacing 15.
+  renderer.applyState({ ...DEFAULT_STATE, count: 12, minDigits: 0, fontSize: 200, letterSpacing: 15 });
+  var digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '15px');
+
+  // At font size 800 with same letterSpacing — margin should be identical.
+  renderer.applyState({ ...DEFAULT_STATE, count: 12, minDigits: 0, fontSize: 800, letterSpacing: 15 });
+  digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '15px',
+    'letter spacing margin must not scale with font size');
+});
+
+test('letter spacing applies without requiring count change', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, minDigits: 0, letterSpacing: 0 });
+  var digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '0px');
+
+  // Only change letterSpacing, not count.
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, minDigits: 0, letterSpacing: 30 });
+  digits = countEl.querySelectorAll('.digit');
+  assert.strictEqual(digits[1].style.marginLeft, '30px',
+    'spacing must update live without count change');
+});
+
+// ---------------------------------------------------------------------------
+// Unified color: glowColor removed, glow uses countColor
+
+test('glowColor is not in DEFAULT_STATE or PATCH_KEYS', () => {
+  assert.strictEqual(DEFAULT_STATE.glowColor, undefined);
+  assert.ok(!PATCH_KEYS.has('glowColor'));
+});
+
+test('glow renders using countColor', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({
+    ...DEFAULT_STATE, count: 5, minDigits: 0,
+    countColor: '#ff0000', glow: true, glowDistance: 20, glowIntensity: 80,
+  });
+
+  assert.ok(countEl.style.textShadow.includes('rgba(255,0,0,'),
+    'glow text-shadow should use countColor red');
+});
+
+test('migration: loading state with glowColor silently drops it', () => {
+  const statePath = path.join(__dirname, '..', 'state.json');
+  const backup = fs.existsSync(statePath) ? fs.readFileSync(statePath, 'utf8') : null;
+  try {
+    fs.writeFileSync(statePath, JSON.stringify({
+      count: 10, glowColor: '#00ff00', countColor: '#ff0000',
+      userDefaults: { glowColor: '#0000ff', countColor: '#ff0000' },
+    }));
+    const loaded = loadState();
+    assert.strictEqual(loaded.glowColor, undefined, 'glowColor stripped from state');
+    assert.strictEqual(loaded.userDefaults.glowColor, undefined, 'glowColor stripped from userDefaults');
+    assert.strictEqual(loaded.countColor, '#ff0000', 'countColor preserved');
+  } finally {
+    if (backup !== null) {
+      fs.writeFileSync(statePath, backup);
+    } else {
+      fs.unlinkSync(statePath);
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Defaults changes
+
+test('perTapFlashEnabled defaults to false', () => {
+  assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, false);
+});
+
+test('minDigits defaults to 4', () => {
+  assert.strictEqual(DEFAULT_STATE.minDigits, 4);
+});
+
+test('minDigits input has numeric keyboard attributes', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'control.html'), 'utf8');
+  assert.ok(html.includes('id="minDigits" inputmode="numeric"'),
+    'minDigits input should have inputmode="numeric"');
+  assert.ok(html.includes('pattern="[0-9]*"'),
+    'minDigits input should have pattern for iOS numeric keyboard');
 });

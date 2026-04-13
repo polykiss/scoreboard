@@ -395,18 +395,10 @@
     </div>
 
     <div class="field">
-      <label>Number color</label>
+      <label>Color</label>
       <div class="color-row">
         <input type="color" id="countColor">
         <input type="text" id="countColorHex" maxlength="7" placeholder="#ffffff">
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Glow color</label>
-      <div class="color-row">
-        <input type="color" id="glowColor">
-        <input type="text" id="glowColorHex" maxlength="7" placeholder="#ffffff">
       </div>
     </div>
 
@@ -500,7 +492,7 @@
 
     <div class="field">
       <label>Min digits <span class="value" id="minDigitsValue"></span></label>
-      <input type="number" id="minDigits" min="0" max="10" step="1">
+      <input type="number" id="minDigits" inputmode="numeric" pattern="[0-9]*" min="0" max="10" step="1">
     </div>
 
     <div class="field">
@@ -587,8 +579,6 @@
     const flashSpeedEl         = document.getElementById('flashSpeed');
     const flashSpeedValue      = document.getElementById('flashSpeedValue');
     const glowEl        = document.getElementById('glow');
-    const glowColorEl   = document.getElementById('glowColor');
-    const glowColorHexEl = document.getElementById('glowColorHex');
     const glowDistanceEl     = document.getElementById('glowDistance');
     const glowDistanceValue  = document.getElementById('glowDistanceValue');
     const glowIntensityEl    = document.getElementById('glowIntensity');
@@ -625,7 +615,7 @@
       el.addEventListener('blur',          stop);
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
-     glowColorEl, glowColorHexEl, countColorEl, countColorHexEl, setInput, fontSelectEl,
+     countColorEl, countColorHexEl, setInput, fontSelectEl,
      transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
@@ -661,9 +651,6 @@
 
       if (!interacting.has(glowIntensityEl)) glowIntensityEl.value = state.glowIntensity;
       glowIntensityValue.textContent = state.glowIntensity;
-
-      if (!interacting.has(glowColorEl)) glowColorEl.value = state.glowColor;
-      if (!interacting.has(glowColorHexEl)) glowColorHexEl.value = state.glowColor;
 
       if (!interacting.has(countColorEl)) countColorEl.value = state.countColor || '#ffffff';
       if (!interacting.has(countColorHexEl)) countColorHexEl.value = state.countColor || '#ffffff';
@@ -917,17 +904,6 @@
       if (Number.isFinite(v) && v >= 1) patch({ bigFlashInterval: v });
     });
     glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
-    glowColorEl.addEventListener('input', () => {
-      glowColorHexEl.value = glowColorEl.value;
-      patch({ glowColor: glowColorEl.value });
-    });
-    glowColorHexEl.addEventListener('input', () => {
-      const v = glowColorHexEl.value.trim();
-      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-        glowColorEl.value = v;
-        patch({ glowColor: v });
-      }
-    });
     countColorEl.addEventListener('input', () => {
       countColorHexEl.value = countColorEl.value;
       patch({ countColor: countColorEl.value });

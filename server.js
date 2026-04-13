@@ -25,7 +25,6 @@ const DEFAULT_STATE = {
   offsetY: 0,
   transitionStyle: 'pulse-changed',
   glow: true,
-  glowColor: '#ffffff',
   glowDistance: 15,
   glowIntensity: 80,
   resolutionPreset: '1080p',
@@ -34,11 +33,11 @@ const DEFAULT_STATE = {
   smallFlashInterval: 10,
   bigFlashEnabled: true,
   bigFlashInterval: 100,
-  perTapFlashEnabled: true,
+  perTapFlashEnabled: false,
   letterSpacing: 0,
   tabularNums: true,
   forceMonospacedDigits: true,
-  minDigits: 0,
+  minDigits: 4,
   fadeLeadingZeros: 30,
   useCommas: true,
   countColor: '#ffffff',
@@ -59,7 +58,6 @@ const PATCH_KEYS = new Set([
   'offsetY',
   'transitionStyle',
   'glow',
-  'glowColor',
   'glowDistance',
   'glowIntensity',
   'resolutionPreset',
@@ -126,6 +124,12 @@ function loadState() {
             loaded.userDefaults.flashOnUpdate ? 'pulse-all' : 'none';
         }
         delete loaded.userDefaults.flashOnUpdate;
+      }
+
+      // Migration: glowColor is now derived from countColor — strip it.
+      delete loaded.glowColor;
+      if (loaded.userDefaults) {
+        delete loaded.userDefaults.glowColor;
       }
     }
   } catch (err) {
