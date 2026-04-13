@@ -63,6 +63,7 @@
     // Digit measurement for forceMonospacedDigits and slot containment.
     var measuredDigitWidth = 0;
     var measuredDigitHeight = 0;
+    var measuredCommaWidth = 0;
     var measuredFontKey = '';
 
     function measureDigitDimensions(state) {
@@ -93,12 +94,18 @@
         if (w > maxW) maxW = w;
         if (h > maxH) maxH = h;
       }
+      // Measure comma width separately — commas are narrower than digits
+      // and should not use the widest-digit width.
+      probe.textContent = ',';
+      var commaW = probe.offsetWidth;
       countEl.removeChild(probe);
       // In jsdom offsetWidth/Height return 0; use fontSize as fallback.
       if (maxW === 0) maxW = state.fontSize || 400;
       if (maxH === 0) maxH = state.fontSize || 400;
+      if (commaW === 0) commaW = Math.round(maxW * 0.35);
       measuredDigitWidth = maxW;
       measuredDigitHeight = maxH;
+      measuredCommaWidth = commaW;
       measuredFontKey = fontKey;
     }
 
@@ -122,6 +129,8 @@
         var ch = slotChar(digits[i]);
         if (ch >= '0' && ch <= '9') {
           digits[i].style.width = measuredDigitWidth + 'px';
+        } else {
+          digits[i].style.width = measuredCommaWidth + 'px';
         }
         digits[i].style.height = measuredDigitHeight + 'px';
       }
@@ -228,12 +237,12 @@
         slot.style.overflow = 'visible';
         slot.style.height = measuredDigitHeight + 'px';
         // All digit slots need explicit width since children are absolute.
-        // Digit chars get the widest-digit width; comma slots get a
-        // measured comma width (approximated at half digit width in jsdom).
+        // Digit chars get the widest-digit width; comma slots get their
+        // own measured width so they sit snugly between digits.
         if (isDigit) {
           slot.style.width = measuredDigitWidth + 'px';
         } else {
-          slot.style.width = Math.round(measuredDigitWidth * 0.5) + 'px';
+          slot.style.width = measuredCommaWidth + 'px';
         }
         // Character is always absolutely positioned inside the slot.
         var charEl = document.createElement('span');
@@ -533,9 +542,9 @@
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
       countEl.style.fontSize = state.fontSize + 'px';
-      // Clear any inline color left by the boot version-display screen
-      // so the CSS rule (#count { color: #fff }) takes effect.
-      countEl.style.color = '';
+      // Always set the count color explicitly so it overrides the boot
+      // version-display's grey and any stale inline styles.
+      countEl.style.color = '#ffffff';
 
       // Pad #count by the glow's visual extent so the glow halo around
       // edge characters is never clipped by the viewport overflow:hidden.

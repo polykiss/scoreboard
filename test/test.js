@@ -1787,10 +1787,10 @@ test('character color at rest is not overridden by boot inline style', () => {
 
   renderer.applyState({ ...DEFAULT_STATE, count: 0 });
 
-  // After applyState the inline color must be cleared (empty string),
-  // allowing the stylesheet rule to take effect.
-  assert.strictEqual(countEl.style.color, '',
-    'applyState must clear inline color set by boot screen');
+  // After applyState the inline color must be white, overriding the
+  // boot screen's grey.
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'applyState must set white color, overriding boot screen grey');
 });
 
 test('letterSpacing change without count change updates DOM immediately', () => {
@@ -1885,4 +1885,37 @@ test('digit slot widths do not include letterSpacing', () => {
 
   assert.strictEqual(w0, w50,
     'digit slot width must not change with letterSpacing');
+});
+
+test('comma slot width is narrower than digit slot width', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 1000, useCommas: true });
+  const digits = countEl.querySelectorAll('.digit');
+  // "1,000" — slot 0 is "1", slot 1 is ",", slots 2-4 are "0"s.
+  const digitWidth = parseInt(digits[0].style.width, 10);
+  const commaWidth = parseInt(digits[1].style.width, 10);
+
+  assert.ok(commaWidth > 0, 'comma slot must have positive width');
+  assert.ok(commaWidth < digitWidth,
+    `comma slot (${commaWidth}px) must be narrower than digit slot (${digitWidth}px)`);
+});
+
+test('character at rest has full opacity and white color', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 42 });
+
+  // countEl should have explicit white color.
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'count element must be white at rest');
+
+  // No digit should have partial opacity at rest (no leading-zero fade
+  // when minDigits is 0).
+  const digits = countEl.querySelectorAll('.digit');
+  for (let i = 0; i < digits.length; i++) {
+    const op = digits[i].style.opacity;
+    assert.ok(op === '' || op === '1',
+      `digit ${i} opacity should be full, got "${op}"`);
+  }
 });
