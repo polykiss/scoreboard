@@ -386,6 +386,17 @@
       if (style === 'crossfade' || style === 'slide') {
         var animSlots = ensureSlots(oldText, newText);
         var animChanged = toSet(changedPositions);
+
+        // Pre-compute the destination leading-zero map and fade alpha
+        // so each transitioning slot renders at its target opacity
+        // during the animation (no pop when cleanup applies the fade).
+        var st = latestState || state;
+        var newLeading = findLeadingZeros(newText);
+        var fadePercent = Number(st.fadeLeadingZeros);
+        if (isNaN(fadePercent)) fadePercent = 100;
+        var fadeAlpha = Math.min(Math.max(fadePercent, 0), 100) / 100;
+        var hasMinDigits = (Number(st.minDigits) || 0) > 0;
+
         for (var ai = 0; ai < animSlots.length; ai++) {
           if (!animChanged[ai]) continue;
           var slot = animSlots[ai];
@@ -397,11 +408,15 @@
           // slide to clip vertically-animating characters; crossfade
           // doesn't need it (no vertical movement).
           slot.innerHTML = '';
-          // Clear any leading-zero fade on this slot so the incoming
-          // character animates at full opacity.  The correct fade will
-          // be re-applied by applyLeadingZeroFade after cleanup.
-          slot.style.opacity = '';
-          slot.style.textShadow = '';
+          // Set the slot to its DESTINATION opacity so the incoming
+          // character animates at the right brightness level.
+          if (hasMinDigits && newLeading[ai]) {
+            slot.style.opacity = String(fadeAlpha);
+            slot.style.textShadow = 'none';
+          } else {
+            slot.style.opacity = '';
+            slot.style.textShadow = '';
+          }
           if (style === 'slide') slot.style.overflow = 'hidden';
 
           // Incoming character — same absolute positioning as resting state.
@@ -599,13 +614,18 @@
       }
 
       // Power state: replace count with shutdown/reboot message.
-      // Use a consistent, readable style regardless of what the
-      // scoreboard font/size/glow was set to.
+      // Override ALL visual styles for a consistent, readable message
+      // regardless of what the scoreboard was configured to.
       if (state.shuttingDown || state.rebooting) {
         var msg = state.shuttingDown ? 'Powering off...' : 'Rebooting...';
         transitionActive = false;
         animationLocked = false;
         perTapRunning = false;
+        // Centre the message regardless of scoreboard alignment/offset.
+        body.style.justifyContent = 'center';
+        body.style.alignItems = 'center';
+        offsetEl.style.transform = 'translate(0px, 0px)';
+        // Clean, readable typography.
         countEl.innerHTML = '';
         countEl.style.fontSize = '120px';
         countEl.style.fontFamily = 'monospace';
@@ -613,6 +633,7 @@
         countEl.style.textShadow = 'none';
         countEl.style.padding = '0';
         countEl.style.fontVariantNumeric = '';
+        countEl.style.color = '#ffffff';
         countEl.textContent = msg;
         displayedText = '';
         currentFontFamily = null;
