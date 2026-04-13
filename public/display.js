@@ -397,6 +397,11 @@
           // slide to clip vertically-animating characters; crossfade
           // doesn't need it (no vertical movement).
           slot.innerHTML = '';
+          // Clear any leading-zero fade on this slot so the incoming
+          // character animates at full opacity.  The correct fade will
+          // be re-applied by applyLeadingZeroFade after cleanup.
+          slot.style.opacity = '';
+          slot.style.textShadow = '';
           if (style === 'slide') slot.style.overflow = 'hidden';
 
           // Incoming character — same absolute positioning as resting state.
@@ -594,6 +599,8 @@
       }
 
       // Power state: replace count with shutdown/reboot message.
+      // Use a consistent, readable style regardless of what the
+      // scoreboard font/size/glow was set to.
       if (state.shuttingDown || state.rebooting) {
         var msg = state.shuttingDown ? 'Powering off...' : 'Rebooting...';
         transitionActive = false;
@@ -601,8 +608,14 @@
         perTapRunning = false;
         countEl.innerHTML = '';
         countEl.style.fontSize = '120px';
+        countEl.style.fontFamily = 'monospace';
+        countEl.style.letterSpacing = '';
+        countEl.style.textShadow = 'none';
+        countEl.style.padding = '0';
+        countEl.style.fontVariantNumeric = '';
         countEl.textContent = msg;
         displayedText = '';
+        currentFontFamily = null;
         return;
       }
 
