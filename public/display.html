@@ -118,17 +118,45 @@
     });
 
     let ws = null;
+    let bootDone = false;
+    let pendingState = null;
+
     function connect() {
       ws = new WebSocket(`ws://${location.host}`);
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
-          if (msg.type === 'state') renderer.applyState(msg.state);
+          if (msg.type === 'state') {
+            if (!bootDone) {
+              pendingState = msg.state;
+            } else {
+              renderer.applyState(msg.state);
+            }
+          }
         } catch {}
       };
       ws.onclose = () => setTimeout(connect, 2000);
       ws.onerror = () => { try { ws.close(); } catch {} };
     }
+
+    function finishBoot() {
+      bootDone = true;
+      if (pendingState) renderer.applyState(pendingState);
+    }
+
+    // Show commit hash briefly on initial load.
+    fetch('/version')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('count');
+        el.textContent = data.commit || 'dev';
+        setTimeout(finishBoot, 3000);
+      })
+      .catch(() => {
+        // Can't get version — skip straight to scoreboard.
+        finishBoot();
+      });
+
     connect();
   </script>
 </body>

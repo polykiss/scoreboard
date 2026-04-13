@@ -4,7 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { WebSocketServer, WebSocket } = require('ws');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
+
+let COMMIT_HASH = 'dev';
+try {
+  COMMIT_HASH = execSync('git rev-parse --short HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
+} catch {}
 
 const PORT = 3000;
 const STATE_FILE = path.join(__dirname, 'state.json');
@@ -169,6 +174,11 @@ function sendHtml(file) {
 }
 app.get('/display', sendHtml('display.html'));
 app.get('/control', sendHtml('control.html'));
+
+app.get('/version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ commit: COMMIT_HASH });
+});
 
 app.get('/fonts', (req, res) => {
   res.set('Cache-Control', 'no-store');
