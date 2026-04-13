@@ -1743,6 +1743,8 @@ test('display shows shutdown message when shuttingDown is true', () => {
 
   renderer.applyState({ ...FLASH_BASE, count: 42, shuttingDown: true });
   assert.strictEqual(countEl.textContent, 'Powering off...');
+  assert.strictEqual(countEl.style.fontSize, '120px',
+    'shutdown message should use 120px font');
 });
 
 test('display shows reboot message when rebooting is true', () => {
@@ -1752,6 +1754,8 @@ test('display shows reboot message when rebooting is true', () => {
 
   renderer.applyState({ ...FLASH_BASE, count: 42, rebooting: true });
   assert.strictEqual(countEl.textContent, 'Rebooting...');
+  assert.strictEqual(countEl.style.fontSize, '120px',
+    'reboot message should use 120px font');
 });
 
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {

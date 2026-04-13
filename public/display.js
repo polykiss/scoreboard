@@ -600,6 +600,7 @@
         animationLocked = false;
         perTapRunning = false;
         countEl.innerHTML = '';
+        countEl.style.fontSize = '120px';
         countEl.textContent = msg;
         displayedText = '';
         return;
