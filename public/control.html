@@ -315,6 +315,28 @@
       background: rgba(180,50,50,0.25);
     }
 
+    .color-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .color-row input[type="color"] {
+      width: 60px;
+      flex-shrink: 0;
+    }
+    .color-row input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      font-size: 16px;
+      font-family: monospace;
+      padding: 8px 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
     select,
     .field input[type="number"] {
       width: 100%;
@@ -343,12 +365,8 @@
   <details>
     <summary>Setup</summary>
 
-    <div class="field">
-      <label>Resolution preset</label>
-      <div class="segments">
-        <label><input type="radio" name="preset" value="1080p"><span>1080p</span></label>
-        <label><input type="radio" name="preset" value="4K"><span>4K</span></label>
-      </div>
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Typography</label>
     </div>
 
     <div class="field">
@@ -364,6 +382,44 @@
     <div class="field">
       <label>Letter spacing <span class="value" id="letterSpacingValue"></span></label>
       <input type="range" id="letterSpacing" min="-20" max="100" step="1">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Tabular nums</label>
+      <input type="checkbox" id="tabularNums">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Force monospaced digits</label>
+      <input type="checkbox" id="forceMonospacedDigits">
+    </div>
+
+    <div class="field">
+      <label>Number color</label>
+      <div class="color-row">
+        <input type="color" id="countColor">
+        <input type="text" id="countColorHex" maxlength="7" placeholder="#ffffff">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Glow color</label>
+      <div class="color-row">
+        <input type="color" id="glowColor">
+        <input type="text" id="glowColorHex" maxlength="7" placeholder="#ffffff">
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Layout</label>
+    </div>
+
+    <div class="field">
+      <label>Resolution preset</label>
+      <div class="segments">
+        <label><input type="radio" name="preset" value="1080p"><span>1080p</span></label>
+        <label><input type="radio" name="preset" value="4K"><span>4K</span></label>
+      </div>
     </div>
 
     <div class="field">
@@ -394,6 +450,10 @@
       <input type="range" id="offsetY">
     </div>
 
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Transitions</label>
+    </div>
+
     <div class="field">
       <label>Transition style</label>
       <select id="transitionStyle">
@@ -403,10 +463,6 @@
         <option value="crossfade">Crossfade</option>
         <option value="slide">Slide</option>
       </select>
-    </div>
-
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Animation speed</label>
     </div>
 
     <div class="field">
@@ -419,14 +475,13 @@
       <input type="range" id="flashSpeed" min="0.25" max="3" step="0.05">
     </div>
 
+    <div class="field" style="margin-top:20px">
+      <label style="font-weight:600;color:var(--text);font-size:14px">Glow</label>
+    </div>
+
     <div class="field toggle-row">
       <label>Glow</label>
       <input type="checkbox" id="glow">
-    </div>
-
-    <div class="field">
-      <label>Glow color</label>
-      <input type="color" id="glowColor">
     </div>
 
     <div class="field">
@@ -441,16 +496,6 @@
 
     <div class="field" style="margin-top:20px">
       <label style="font-weight:600;color:var(--text);font-size:14px">Digit rendering</label>
-    </div>
-
-    <div class="field toggle-row">
-      <label>Tabular nums</label>
-      <input type="checkbox" id="tabularNums">
-    </div>
-
-    <div class="field toggle-row">
-      <label>Force monospaced digits</label>
-      <input type="checkbox" id="forceMonospacedDigits">
     </div>
 
     <div class="field">
@@ -543,11 +588,14 @@
     const flashSpeedValue      = document.getElementById('flashSpeedValue');
     const glowEl        = document.getElementById('glow');
     const glowColorEl   = document.getElementById('glowColor');
+    const glowColorHexEl = document.getElementById('glowColorHex');
     const glowDistanceEl     = document.getElementById('glowDistance');
     const glowDistanceValue  = document.getElementById('glowDistanceValue');
     const glowIntensityEl    = document.getElementById('glowIntensity');
     const glowIntensityValue = document.getElementById('glowIntensityValue');
     const fontSelectEl       = document.getElementById('selectedFont');
+    const countColorEl       = document.getElementById('countColor');
+    const countColorHexEl    = document.getElementById('countColorHex');
     const minDigitsEl             = document.getElementById('minDigits');
     const minDigitsValue          = document.getElementById('minDigitsValue');
     const fadeLeadingZerosEl      = document.getElementById('fadeLeadingZeros');
@@ -577,7 +625,8 @@
       el.addEventListener('blur',          stop);
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
-     glowColorEl, setInput, fontSelectEl, transitionStyleEl, transitionSpeedEl, flashSpeedEl,
+     glowColorEl, glowColorHexEl, countColorEl, countColorHexEl, setInput, fontSelectEl,
+     transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl]
       .forEach(trackInteraction);
 
@@ -614,6 +663,10 @@
       glowIntensityValue.textContent = state.glowIntensity;
 
       if (!interacting.has(glowColorEl)) glowColorEl.value = state.glowColor;
+      if (!interacting.has(glowColorHexEl)) glowColorHexEl.value = state.glowColor;
+
+      if (!interacting.has(countColorEl)) countColorEl.value = state.countColor || '#ffffff';
+      if (!interacting.has(countColorHexEl)) countColorHexEl.value = state.countColor || '#ffffff';
 
       if (!interacting.has(fontSelectEl) && state.selectedFont) {
         // Only update if the option exists (dropdown may not be populated yet).
@@ -864,7 +917,28 @@
       if (Number.isFinite(v) && v >= 1) patch({ bigFlashInterval: v });
     });
     glowEl.addEventListener('change',     () => patch({ glow: glowEl.checked }));
-    glowColorEl.addEventListener('input', () => patch({ glowColor: glowColorEl.value }));
+    glowColorEl.addEventListener('input', () => {
+      glowColorHexEl.value = glowColorEl.value;
+      patch({ glowColor: glowColorEl.value });
+    });
+    glowColorHexEl.addEventListener('input', () => {
+      const v = glowColorHexEl.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        glowColorEl.value = v;
+        patch({ glowColor: v });
+      }
+    });
+    countColorEl.addEventListener('input', () => {
+      countColorHexEl.value = countColorEl.value;
+      patch({ countColor: countColorEl.value });
+    });
+    countColorHexEl.addEventListener('input', () => {
+      const v = countColorHexEl.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        countColorEl.value = v;
+        patch({ countColor: v });
+      }
+    });
     glowDistanceEl.addEventListener('input', () => {
       const v = parseInt(glowDistanceEl.value, 10);
       glowDistanceValue.textContent = v;

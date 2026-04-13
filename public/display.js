@@ -544,7 +544,7 @@
       countEl.style.fontSize = state.fontSize + 'px';
       // Always set the count color explicitly so it overrides the boot
       // version-display's grey and any stale inline styles.
-      countEl.style.color = '#ffffff';
+      countEl.style.color = state.countColor || '#ffffff';
 
       // Pad #count by the glow's visual extent so the glow halo around
       // edge characters is never clipped by the viewport overflow:hidden.

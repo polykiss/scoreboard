@@ -1901,12 +1901,12 @@ test('comma slot width is narrower than digit slot width', () => {
     `comma slot (${commaWidth}px) must be narrower than digit slot (${digitWidth}px)`);
 });
 
-test('character at rest has full opacity and white color', () => {
+test('character at rest has full opacity and default white color', () => {
   const { clock, renderer, countEl } = setupRenderer(true);
 
   renderer.applyState({ ...DEFAULT_STATE, count: 42 });
 
-  // countEl should have explicit white color.
+  // countEl should have explicit white color (default countColor).
   assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
     'count element must be white at rest');
 
@@ -1918,4 +1918,80 @@ test('character at rest has full opacity and white color', () => {
     assert.ok(op === '' || op === '1',
       `digit ${i} opacity should be full, got "${op}"`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// countColor feature tests
+
+test('countColor in DEFAULT_STATE defaults to #ffffff', () => {
+  assert.strictEqual(DEFAULT_STATE.countColor, '#ffffff');
+});
+
+test('countColor is in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('countColor'));
+});
+
+test('state with countColor #ff0000 renders count characters in red', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 7, countColor: '#ff0000' });
+
+  assert.strictEqual(countEl.style.color, 'rgb(255, 0, 0)',
+    'count element should be red when countColor is #ff0000');
+});
+
+test('glow color remains independent of count color', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 5,
+    countColor: '#ff0000',
+    glow: true,
+    glowColor: '#00ff00',
+    glowDistance: 10,
+    glowIntensity: 80,
+  });
+
+  // Count color is red.
+  assert.strictEqual(countEl.style.color, 'rgb(255, 0, 0)',
+    'count color should be red');
+
+  // Glow color should contain the green glow, not red.
+  assert.ok(countEl.style.textShadow.includes('rgba(0,255,0,'),
+    'glow should use glowColor (#00ff00), not countColor');
+});
+
+test('live update: changing countColor without count change updates immediately', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 3, countColor: '#ffffff' });
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)');
+
+  // Change only countColor — no count change.
+  renderer.applyState({ ...DEFAULT_STATE, count: 3, countColor: '#0000ff' });
+  assert.strictEqual(countEl.style.color, 'rgb(0, 0, 255)',
+    'countColor should update immediately without count change');
+});
+
+test('countColor participates in user defaults round-trip', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { countColor: '#abcdef' },
+  }));
+  assert.strictEqual(getState().countColor, '#abcdef');
+
+  // Save user defaults.
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+  assert.strictEqual(getState().userDefaults.countColor, '#abcdef');
+
+  // Change it.
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { countColor: '#111111' },
+  }));
+  assert.strictEqual(getState().countColor, '#111111');
+
+  // Reset to user defaults — should restore.
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+  assert.strictEqual(getState().countColor, '#abcdef');
 });
