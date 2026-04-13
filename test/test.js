@@ -1167,12 +1167,13 @@ test('slide: all slots have stable dimensions (position/overflow/height)', () =>
   const state = { ...FLASH_BASE, transitionStyle: 'slide' };
   renderer.applyState({ ...state, count: 247 });
 
-  // All slots (changed and unchanged) are position:relative + overflow:hidden
-  // + explicit height, since renderDigits always sets them.
+  // All slots (changed and unchanged) are position:relative + overflow:visible
+  // + explicit height.  overflow:hidden is only applied during active slide
+  // transitions, not at rest, so glow can extend freely.
   const digitsBefore = countEl.querySelectorAll('.digit');
   for (let i = 0; i < digitsBefore.length; i++) {
     assert.strictEqual(digitsBefore[i].style.position, 'relative');
-    assert.strictEqual(digitsBefore[i].style.overflow, 'hidden');
+    assert.strictEqual(digitsBefore[i].style.overflow, 'visible');
     assert.ok(digitsBefore[i].style.height.endsWith('px'));
   }
   const heightBefore = digitsBefore[0].style.height;

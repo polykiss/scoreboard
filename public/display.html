@@ -144,11 +144,18 @@
       if (pendingState) renderer.applyState(pendingState);
     }
 
-    // Show commit hash briefly on initial load.
+    // Show commit hash briefly on initial load.  Style it explicitly
+    // because applyState hasn't run yet (body flex defaults leave #count
+    // tiny and in the corner).
     fetch('/version')
       .then(r => r.json())
       .then(data => {
+        document.body.style.justifyContent = 'center';
+        document.body.style.alignItems = 'center';
         const el = document.getElementById('count');
+        el.style.fontSize = '28px';
+        el.style.fontFamily = 'monospace';
+        el.style.color = '#555';
         el.textContent = data.commit || 'dev';
         setTimeout(finishBoot, 3000);
       })

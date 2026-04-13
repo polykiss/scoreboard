@@ -110,8 +110,11 @@
     }
 
     function applyDigitWidths(state) {
-      // With absolute-positioned characters, all slots need explicit width.
-      // Re-measure in case font/size changed, then update digit slot widths.
+      // With absolute-positioned characters, all slots need explicit
+      // width AND height.  Re-measure in case font/size changed, then
+      // update digit slot dimensions.  Updating height here is critical
+      // — without it, font-size slider changes leave stale slot heights
+      // and the flex-centered count drifts vertically.
       measureDigitDimensions(state);
       var digits = countEl.querySelectorAll('.digit');
       for (var i = 0; i < digits.length; i++) {
@@ -119,6 +122,7 @@
         if (ch >= '0' && ch <= '9') {
           digits[i].style.width = measuredDigitWidth + 'px';
         }
+        digits[i].style.height = measuredDigitHeight + 'px';
       }
     }
 
@@ -220,6 +224,7 @@
         var slot = document.createElement('span');
         slot.className = 'digit';
         slot.style.position = 'relative';
+        slot.style.overflow = 'visible';
         slot.style.height = measuredDigitHeight + 'px';
         // All digit slots need explicit width since children are absolute.
         // Digit chars get the widest-digit width; comma slots get a
@@ -299,8 +304,8 @@
       var slots = countEl.querySelectorAll('.digit');
       for (var i = 0; i < slots.length; i++) {
         var s = slots[i];
-        // Remove slide-scoped overflow:hidden so glow extends freely at rest.
-        s.style.overflow = '';
+        // Restore explicit overflow:visible so glow extends freely at rest.
+        s.style.overflow = 'visible';
         // Remove outgoing element(s) — identified by animation class.
         var outs = s.querySelectorAll('.digit-out, .slide-out');
         for (var j = 0; j < outs.length; j++) outs[j].remove();
@@ -527,6 +532,16 @@
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
       countEl.style.fontSize = state.fontSize + 'px';
+
+      // Pad #count by the glow's visual extent so the glow halo around
+      // edge characters is never clipped by the viewport overflow:hidden.
+      if (state.glow) {
+        var glowPad = Math.ceil((Number(state.glowDistance) || 0) * 2);
+        countEl.style.padding = glowPad + 'px';
+      } else {
+        countEl.style.padding = '0';
+      }
+
       applyFont(state.selectedFont);
       countEl.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
 
