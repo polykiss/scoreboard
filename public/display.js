@@ -220,7 +220,6 @@
         var slot = document.createElement('span');
         slot.className = 'digit';
         slot.style.position = 'relative';
-        slot.style.overflow = 'hidden';
         slot.style.height = measuredDigitHeight + 'px';
         // All digit slots need explicit width since children are absolute.
         // Digit chars get the widest-digit width; comma slots get a
@@ -300,6 +299,8 @@
       var slots = countEl.querySelectorAll('.digit');
       for (var i = 0; i < slots.length; i++) {
         var s = slots[i];
+        // Remove slide-scoped overflow:hidden so glow extends freely at rest.
+        s.style.overflow = '';
         // Remove outgoing element(s) — identified by animation class.
         var outs = s.querySelectorAll('.digit-out, .slide-out');
         for (var j = 0; j < outs.length; j++) outs[j].remove();
@@ -369,10 +370,12 @@
           var oldCh = (ai < oldText.length) ? oldText[ai] : '';
           var newCh = newText[ai];
 
-          // Slot is already position:relative, overflow:hidden, fixed
-          // dimensions from renderDigits/ensureSlots. Remove the resting
-          // character and replace with incoming + outgoing pair.
+          // Slot is position:relative with fixed dimensions from
+          // renderDigits/ensureSlots. Add overflow:hidden only during
+          // slide to clip vertically-animating characters; crossfade
+          // doesn't need it (no vertical movement).
           slot.innerHTML = '';
+          if (style === 'slide') slot.style.overflow = 'hidden';
 
           // Incoming character — same absolute positioning as resting state.
           var inc = document.createElement('span');
