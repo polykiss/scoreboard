@@ -1766,3 +1766,123 @@ test('migration: old glowIntensity (no glowDistance) maps to distance', () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Regression tests for 4540768 — grey rendering, letter-spacing live update,
+// and first-tap-after-style-change bugs.
+
+test('character color at rest is not overridden by boot inline style', () => {
+  // Simulate the boot sequence: set countEl.style.color to grey (as the
+  // version-display code does), then call applyState.  The renderer must
+  // clear the inline color so the CSS rule (#count { color: #fff }) wins.
+  const { document, countEl, offsetEl } = setupRenderer();
+  countEl.style.color = '#555';  // simulate boot version display
+
+  const renderer = createRenderer({
+    document,
+    body: document.body,
+    offsetEl,
+    countEl,
+  });
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 0 });
+
+  // After applyState the inline color must be cleared (empty string),
+  // allowing the stylesheet rule to take effect.
+  assert.strictEqual(countEl.style.color, '',
+    'applyState must clear inline color set by boot screen');
+});
+
+test('letterSpacing change without count change updates DOM immediately', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  // Initial state with letterSpacing 0.
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, letterSpacing: 0 });
+
+  const spacingBefore = countEl.style.letterSpacing;
+
+  // Change only letterSpacing — no count change.
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, letterSpacing: 20 });
+
+  const spacingAfter = countEl.style.letterSpacing;
+  assert.strictEqual(spacingAfter, '20px',
+    'letterSpacing CSS property should update immediately');
+  assert.notStrictEqual(spacingBefore, spacingAfter,
+    'spacing should differ from before');
+});
+
+test('all visual style fields update live without count change (8984ea6 regression)', () => {
+  const { clock, renderer, countEl, document } = setupRenderer(true);
+
+  // Render initial state.
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 400,
+    letterSpacing: 0, glow: true, glowDistance: 15 });
+
+  // Change several visual-only properties without changing count.
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 200,
+    letterSpacing: 10, glow: false });
+
+  assert.strictEqual(countEl.style.fontSize, '200px', 'fontSize updated');
+  assert.strictEqual(countEl.style.letterSpacing, '10px', 'letterSpacing updated');
+  assert.strictEqual(countEl.style.textShadow, 'none', 'glow cleared');
+});
+
+test('transitionStyle change then count change renders correctly', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  // Start with transitionStyle 'none' at count 5.
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, transitionStyle: 'none' });
+  assert.strictEqual(renderer._getDisplayedText(), '5');
+
+  // Change transitionStyle to 'slide' (no count change).
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, transitionStyle: 'slide' });
+  assert.strictEqual(renderer._getDisplayedText(), '5',
+    'displayedText unchanged after style-only update');
+  assert.strictEqual(renderer._getLastCount(), 5,
+    'lastCount unchanged after style-only update');
+
+  // Now increment count — this must render despite the style change.
+  renderer.applyState({ ...DEFAULT_STATE, count: 6, transitionStyle: 'slide' });
+
+  // The slide transition is running.  Advance past it.
+  clock.advance(500);
+
+  assert.strictEqual(renderer._getDisplayedText(), '6',
+    'count must update after transitionStyle change + count change');
+  assert.strictEqual(renderer._getLastCount(), 6,
+    'lastCount must advance');
+});
+
+test('count change renders when transitionStyle and count change in same broadcast', () => {
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  // Start with 'none' at count 10.
+  renderer.applyState({ ...DEFAULT_STATE, count: 10, transitionStyle: 'none' });
+  assert.strictEqual(renderer._getDisplayedText(), '10');
+
+  // Single broadcast changes BOTH transitionStyle and count.
+  renderer.applyState({ ...DEFAULT_STATE, count: 11, transitionStyle: 'crossfade' });
+  clock.advance(500);
+
+  assert.strictEqual(renderer._getDisplayedText(), '11',
+    'count must update even when transitionStyle also changed');
+  assert.strictEqual(renderer._getLastCount(), 11);
+});
+
+test('digit slot widths do not include letterSpacing', () => {
+  // letterSpacing is a CSS property on #count that applies between
+  // inline-block .digit slots.  The slot widths should reflect only the
+  // character width, not the inter-slot spacing.
+  const { clock, renderer, countEl } = setupRenderer(true);
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 8, letterSpacing: 0 });
+  const digits0 = countEl.querySelectorAll('.digit');
+  const w0 = digits0[0].style.width;
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 8, letterSpacing: 50 });
+  const digits50 = countEl.querySelectorAll('.digit');
+  const w50 = digits50[0].style.width;
+
+  assert.strictEqual(w0, w50,
+    'digit slot width must not change with letterSpacing');
+});

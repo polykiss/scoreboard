@@ -66,15 +66,16 @@
     var measuredFontKey = '';
 
     function measureDigitDimensions(state) {
-      var fontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '') +
-        '|' + (state.letterSpacing || 0);
+      var fontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '');
       if (fontKey === measuredFontKey && measuredDigitWidth > 0) return;
       var probe = document.createElement('span');
       probe.style.position = 'absolute';
       probe.style.visibility = 'hidden';
       probe.style.whiteSpace = 'nowrap';
       probe.style.fontSize = (state.fontSize || 400) + 'px';
-      probe.style.letterSpacing = (Number(state.letterSpacing) || 0) + 'px';
+      // Do not set letterSpacing on the probe — letter-spacing is a
+      // parent-level CSS property on #count between slots, not a
+      // per-character dimension.  Including it inflated slot widths.
       probe.style.lineHeight = '1';
       probe.style.display = 'inline-block';
       if (currentFontFamily) {
@@ -532,6 +533,9 @@
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
       countEl.style.fontSize = state.fontSize + 'px';
+      // Clear any inline color left by the boot version-display screen
+      // so the CSS rule (#count { color: #fff }) takes effect.
+      countEl.style.color = '';
 
       // Pad #count by the glow's visual extent so the glow halo around
       // edge characters is never clipped by the viewport overflow:hidden.
@@ -549,8 +553,7 @@
       countEl.style.fontVariantNumeric = state.tabularNums ? 'tabular-nums' : '';
 
       // Invalidate digit width cache when font/size changes.
-      var newFontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '') +
-        '|' + (state.letterSpacing || 0);
+      var newFontKey = (state.fontSize || 400) + '|' + (state.selectedFont || '');
       if (newFontKey !== measuredFontKey) measuredDigitWidth = 0;
 
       // Glow: when minDigits > 0, glow is applied per-digit (so we can
@@ -584,14 +587,8 @@
         return;
       }
 
-      // Re-apply digit widths and leading-zero fade to existing DOM
-      // whenever visual style changes, even without a count change.
-      if (displayedText && !transitionActive) {
-        applyDigitWidths(state);
-        applyLeadingZeroFade(state);
-      }
-
-      // Count handling
+      // Count handling — update tracking vars first so latestState /
+      // latestCount are current before any early return.
       var newCount = state.count;
       latestCount = newCount;
       latestState = state;
@@ -601,11 +598,26 @@
         return;
       }
 
+      // Determine whether the count changed — this decides whether we
+      // run a full transition or just re-apply visual styles in place.
+      var countChanged = lastCount !== null && newCount !== lastCount;
+
+      // Re-apply digit widths and leading-zero fade to existing DOM
+      // whenever visual style changes, but only when the count is NOT
+      // also changing.  When the count changes, doCountUpdate rebuilds /
+      // animates the slots and calls applyDigitWidths / applyLeadingZeroFade
+      // on completion, so touching the slots here would leave them in a
+      // half-modified state that the transition animation then inherits.
+      if (displayedText && !countChanged) {
+        applyDigitWidths(state);
+        applyLeadingZeroFade(state);
+      }
+
       // First applyState or same count — just render (no transition).
       // Also handles format-only changes (e.g. useCommas toggled) — update
       // instantly without triggering a transition animation.
-      if (lastCount === null || newCount === lastCount) {
-        lastCount = newCount;
+      if (!countChanged) {
+        if (lastCount === null) lastCount = newCount;
         var text = formatCount(newCount, state);
         if (text !== displayedText) renderDigits(text);
         return;
