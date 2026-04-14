@@ -58,6 +58,25 @@
       const safeName = String(name).replace(/'/g, "\\'");
       countEl.style.fontFamily = `'${safeName}', monospace`;
       currentFontFamily = name;
+      // Fonts load asynchronously. The first measurement done before
+      // the font is ready uses monospace-fallback widths, which leaves
+      // slots narrower than the real digits — so digits overlap and
+      // letter-spacing appears to collapse to 0. Wait for the font to
+      // become available, then invalidate the measurement cache and
+      // re-apply widths.
+      if (document.fonts && typeof document.fonts.load === 'function') {
+        try {
+          document.fonts.load("1em '" + safeName + "'").then(function () {
+            if (currentFontFamily !== name) return;
+            measuredFontKey = '';
+            measuredDigitWidth = 0;
+            if (latestState && countEl.querySelector('.digit')) {
+              applyDigitWidths(latestState);
+              applyLeadingZeroFade(latestState);
+            }
+          }).catch(function () {});
+        } catch (e) {}
+      }
     }
 
     // Digit measurement for forceMonospacedDigits and slot containment.
@@ -181,6 +200,18 @@
       return result;
     }
 
+    function computeGlowShadow(state) {
+      if (!state || !state.glow) return '';
+      var d = Number(state.glowDistance) || 0;
+      var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
+      var hex = state.countColor || '#ffffff';
+      var r = parseInt(hex.slice(1, 3), 16);
+      var g = parseInt(hex.slice(3, 5), 16);
+      var b = parseInt(hex.slice(5, 7), 16);
+      var rgba = 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+      return '0 0 ' + d + 'px ' + rgba + ', 0 0 ' + (d * 2) + 'px ' + rgba;
+    }
+
     // Apply opacity and glow suppression to leading-zero digits.
     function applyLeadingZeroFade(state) {
       var fadePercent = Number(state.fadeLeadingZeros);
@@ -192,18 +223,7 @@
       var digits = countEl.querySelectorAll('.digit');
       var leading = findLeadingZeros(displayedText);
 
-      // Compute glow shadow string for active digits (reusable).
-      var glowShadow = '';
-      if (state.glow) {
-        var d = Number(state.glowDistance) || 0;
-        var a = Math.min(Math.max(Number(state.glowIntensity) || 0, 0), 100) / 100;
-        var hex = state.countColor || '#ffffff';
-        var r = parseInt(hex.slice(1, 3), 16);
-        var g = parseInt(hex.slice(3, 5), 16);
-        var b = parseInt(hex.slice(5, 7), 16);
-        var rgba = 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
-        glowShadow = '0 0 ' + d + 'px ' + rgba + ', 0 0 ' + (d * 2) + 'px ' + rgba;
-      }
+      var glowShadow = computeGlowShadow(state);
 
       for (var i = 0; i < digits.length; i++) {
         if (leading[i]) {
@@ -396,6 +416,11 @@
         if (isNaN(fadePercent)) fadePercent = 100;
         var fadeAlpha = Math.min(Math.max(fadePercent, 0), 100) / 100;
         var hasMinDigits = (Number(st.minDigits) || 0) > 0;
+        // When minDigits > 0, glow lives on each slot's textShadow (set
+        // by applyLeadingZeroFade), not on countEl. Without explicitly
+        // re-applying it here, the slot's textShadow is cleared for the
+        // duration of the animation and glow pops in only at cleanup.
+        var glowShadow = hasMinDigits ? computeGlowShadow(st) : '';
 
         for (var ai = 0; ai < animSlots.length; ai++) {
           if (!animChanged[ai]) continue;
@@ -415,7 +440,7 @@
             slot.style.textShadow = 'none';
           } else {
             slot.style.opacity = '';
-            slot.style.textShadow = '';
+            slot.style.textShadow = glowShadow || '';
           }
           if (style === 'slide') slot.style.overflow = 'hidden';
 
