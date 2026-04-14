@@ -2,99 +2,144 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Scoreboard Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
     :root {
-      --bg: #0e0e10;
-      --panel: #1c1c1f;
-      --panel-2: #27272b;
-      --border: #333;
-      --text: #fff;
-      --muted: #9a9a9f;
-      --green: #2e7d32;
-      --green-bright: #3fa045;
-      --red: #b00020;
+      /* surfaces */
+      --bg:            #0a0a0c;
+      --surface:       #141418;
+      --surface-2:     #1c1c21;
+      --surface-3:     #26262c;
+      --border:        #2a2a31;
+      --border-strong: #3a3a42;
+
+      /* ink */
+      --text:       #fafafa;
+      --muted:      #8a8a92;
+      --dim:        #5a5a62;
+
+      /* accents */
+      --accent:        #3fa045;
+      --accent-deep:   #2e7d32;
+      --accent-glow:   rgba(63, 160, 69, 0.45);
+      --danger:        #c62b3e;
+      --danger-deep:   #7a0018;
+
+      /* rhythm */
+      --r-sm:  8px;
+      --r-md:  12px;
+      --r-lg:  16px;
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     html, body {
       margin: 0;
       padding: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-      -webkit-tap-highlight-color: transparent;
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-feature-settings: 'ss01', 'cv11';
       -webkit-user-select: none;
       user-select: none;
     }
 
     body {
       min-height: 100vh;
-      padding: 16px 16px 32px;
-      padding-top: 44px;
+      padding: 52px 16px calc(40px + env(safe-area-inset-bottom));
+      max-width: 560px;
+      margin: 0 auto;
     }
 
     /* ---------- connection status ---------- */
 
     #status {
       position: fixed;
-      top: 10px;
+      top: calc(10px + env(safe-area-inset-top));
       right: 12px;
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 8px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
       color: var(--muted);
       z-index: 10;
+      padding: 6px 12px 6px 10px;
+      background: rgba(20, 20, 24, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
     #status .dot {
-      width: 10px;
-      height: 10px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: var(--red);
+      background: var(--danger);
+      transition: background 200ms ease, box-shadow 200ms ease;
     }
-    #status.connected .dot { background: var(--green-bright); }
+    #status.connected .dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(63, 160, 69, 0.18);
+    }
 
-    /* ---------- buttons ---------- */
+    /* ---------- buttons (base) ---------- */
 
     button {
       font: inherit;
       color: var(--text);
-      background: var(--panel);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: var(--r-md);
+      padding: 16px 20px;
+      min-height: 52px;
+      -webkit-appearance: none;
+      cursor: pointer;
     }
-    button:active { filter: brightness(1.25); }
+    button:focus { outline: none; }
+    button:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+
+    /* ---------- primary +1 / -1 ---------- */
 
     .plus {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
-      min-height: 42vh;
-      font-size: clamp(72px, 22vw, 180px);
-      font-weight: 700;
-      background: var(--green);
-      border-color: var(--green);
-      margin-bottom: 14px;
+      min-height: 44vh;
+      font-size: clamp(80px, 24vw, 200px);
+      font-weight: 600;
+      font-feature-settings: 'tnum';
+      letter-spacing: -0.04em;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      margin-bottom: 12px;
       line-height: 1;
+      box-shadow:
+        0 16px 40px -20px var(--accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.18);
     }
 
     .minus {
       display: block;
-      width: 65%;
-      margin: 0 auto 22px;
-      font-size: 34px;
-      background: var(--panel-2);
-      padding: 18px;
+      width: 60%;
+      margin: 0 auto 28px;
+      font-size: 30px;
+      font-weight: 500;
+      min-height: 64px;
+      background: var(--surface-2);
+      border-color: var(--border);
+      letter-spacing: -0.01em;
     }
 
-    /* Press feedback for +1/-1. The transition lives on the base rule so
-       the *release* is smooth; .pressed sets transition: none so the
-       press is instant (no delay on touch). touch-action: manipulation
-       keeps iOS Safari from eating the first pointerdown with its
-       300ms double-tap-zoom. */
     .plus,
     .minus {
       touch-action: manipulation;
@@ -107,46 +152,58 @@
       transition: none;
     }
 
+    /* ---------- set row ---------- */
+
     .set-row {
       display: flex;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .set-row input {
       flex: 1;
       min-width: 0;
       font: inherit;
-      font-size: 22px;
-      padding: 14px;
-      border-radius: 10px;
+      font-size: 19px;
+      font-variant-numeric: tabular-nums;
+      padding: 14px 16px;
+      min-height: 52px;
+      border-radius: var(--r-md);
       border: 1px solid var(--border);
-      background: var(--panel);
+      background: var(--surface);
       color: var(--text);
+      transition: border-color 150ms ease;
     }
+    .set-row input::placeholder { color: var(--dim); }
+    .set-row input:focus { outline: none; border-color: var(--border-strong); }
     .set-row button {
-      padding: 14px 22px;
-      font-size: 18px;
+      padding: 0 26px;
+      min-width: 96px;
+      font-size: 16px;
+      font-weight: 500;
     }
+
+    /* ---------- reset (hold-to-confirm) ---------- */
 
     .reset {
       display: block;
       width: 100%;
-      background: var(--red);
-      border-color: var(--red);
-      font-size: 18px;
-      margin-bottom: 24px;
+      background: var(--danger-deep);
+      border-color: var(--danger-deep);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      margin-bottom: 32px;
+      min-height: 56px;
       position: relative;
       overflow: hidden;
       touch-action: manipulation;
     }
-    /* Fill overlay for hold-to-confirm. Driven by a CSS transition so it
-       stays smooth regardless of main-thread load. Uses scaleX so no
-       layout work — just compositor. */
     .reset::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: #7a0018;
+      background: var(--danger);
       transform: scaleX(0);
       transform-origin: left center;
       pointer-events: none;
@@ -155,135 +212,379 @@
       transform: scaleX(1);
       transition: transform 3s linear;
     }
-    /* Keep the label above the fill overlay. */
     .reset .reset-label {
       position: relative;
       z-index: 1;
     }
-    /* Brief success flash after a completed hold. */
     .reset.success {
-      background: var(--green);
-      border-color: var(--green);
+      background: var(--accent);
+      border-color: var(--accent);
     }
 
-    /* ---------- setup panel ---------- */
+    /* ---------- details card ---------- */
 
     details {
-      background: var(--panel);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 6px 16px 16px;
+      border-radius: var(--r-lg);
+      padding: 0 20px;
+      overflow: hidden;
     }
     summary {
       list-style: none;
-      padding: 12px 0;
-      font-weight: 600;
-      font-size: 16px;
+      padding: 20px 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text);
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+      user-select: none;
     }
     summary::-webkit-details-marker { display: none; }
-    summary::before {
-      content: '▸ ';
-      color: var(--muted);
-      font-size: 12px;
-      vertical-align: 1px;
+    summary::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-right: 1.5px solid var(--muted);
+      border-bottom: 1.5px solid var(--muted);
+      transform: rotate(45deg);
+      transition: transform 220ms ease;
+      margin-right: 4px;
+      margin-bottom: 2px;
     }
-    details[open] summary::before { content: '▾ '; }
+    details[open] summary::after {
+      transform: rotate(-135deg);
+      margin-bottom: -2px;
+    }
+    details[open] {
+      padding-bottom: 22px;
+    }
 
-    .field { margin: 14px 0; }
+    /* ---------- group headings inside Setup ---------- */
+
+    .group-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 28px 0 14px;
+    }
+    .group-heading::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .group-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-strong), transparent);
+    }
+    .group-heading:first-of-type { margin-top: 8px; }
+
+    /* ---------- field ---------- */
+
+    .field {
+      margin: 0 0 18px;
+    }
     .field > label {
       display: flex;
       justify-content: space-between;
+      align-items: baseline;
       font-size: 13px;
       color: var(--muted);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      letter-spacing: 0.01em;
     }
     .field .value {
       color: var(--text);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
       font-variant-numeric: tabular-nums;
     }
 
+    /* ---------- range slider ---------- */
+
     input[type="range"] {
       width: 100%;
-      accent-color: var(--green-bright);
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      height: 36px;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
     }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--surface-3);
+      border-radius: 2px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      margin-top: -12px;
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-track {
+      height: 4px;
+      background: var(--surface-3);
+      border-radius: 2px;
+      border: none;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+    }
+
+    /* ---------- segmented control ---------- */
 
     .segments {
       display: flex;
-      gap: 8px;
+      gap: 4px;
+      background: var(--surface-2);
+      padding: 4px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--border);
     }
     .segments label {
       flex: 1;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 8px;
+      background: transparent;
+      border: none;
+      border-radius: calc(var(--r-md) - 4px);
+      padding: 0 8px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
       color: var(--muted);
       font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
     }
     .segments input { display: none; }
     .segments label:has(input:checked) {
-      background: #3a3a3f;
-      border-color: #555;
+      background: var(--surface-3);
       color: var(--text);
-      font-weight: 600;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.35);
     }
+
+    /* ---------- toggle ---------- */
 
     .toggle-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      min-height: 44px;
     }
     .toggle-row > label {
       margin: 0;
       color: var(--text);
       font-size: 15px;
+      flex: 1;
+      padding-right: 12px;
     }
     .toggle-row input[type="checkbox"] {
-      width: 26px;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 44px;
       height: 26px;
-      accent-color: var(--green-bright);
+      border-radius: 999px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease;
+      flex-shrink: 0;
+      margin: 0;
     }
+    .toggle-row input[type="checkbox"]::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 200ms cubic-bezier(0.4, 0.1, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    }
+    .toggle-row input[type="checkbox"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .toggle-row input[type="checkbox"]:checked::after {
+      transform: translateX(18px);
+    }
+
+    /* ---------- color input ---------- */
 
     input[type="color"] {
-      width: 100%;
-      height: 44px;
-      background: var(--panel-2);
+      -webkit-appearance: none;
+      appearance: none;
+      width: 56px;
+      height: 48px;
+      background: var(--surface-2);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 4px;
+      border-radius: var(--r-sm);
+      padding: 3px;
+      cursor: pointer;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 5px;
+    }
+    input[type="color"]::-moz-color-swatch {
+      border: none;
+      border-radius: 5px;
     }
 
-    /* ---------- preset section ---------- */
+    .color-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .color-row input[type="color"] {
+      flex-shrink: 0;
+    }
+    .color-row input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 14px;
+      padding: 12px 14px;
+      min-height: 48px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      text-transform: lowercase;
+      transition: border-color 150ms ease;
+    }
+    .color-row input[type="text"]:focus {
+      outline: none;
+      border-color: var(--border-strong);
+    }
 
-    .preset-section {
-      margin-top: 24px;
-      border-top: 1px solid var(--border);
-      padding-top: 16px;
+    /* ---------- select & number ---------- */
+
+    select,
+    .field input[type="number"] {
+      width: 100%;
+      font: inherit;
+      font-size: 15px;
+      padding: 13px 16px;
+      min-height: 48px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 150ms ease;
     }
-    .preset-heading {
-      font-weight: 600;
-      font-size: 16px;
-      margin-bottom: 12px;
+    select:focus,
+    .field input[type="number"]:focus {
+      outline: none;
+      border-color: var(--border-strong);
     }
+    select {
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238a8a92' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 44px;
+    }
+    .field input[type="number"] {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- bottom sections (Preset, Power) ---------- */
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .section-heading::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .section-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .preset-section { margin-top: 32px; }
+    .power-section  { margin-top: 28px; }
+
+    /* ---------- hold buttons ---------- */
 
     .hold-btn {
       display: block;
       width: 100%;
-      font-size: 16px;
-      padding: 14px;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 16px;
       margin-bottom: 10px;
+      min-height: 52px;
       position: relative;
       overflow: hidden;
       touch-action: manipulation;
+      letter-spacing: 0.005em;
     }
+    .hold-btn:last-child { margin-bottom: 0; }
     .hold-btn::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.08);
       transform: scaleX(0);
       transform-origin: left center;
       pointer-events: none;
@@ -297,56 +598,18 @@
       z-index: 1;
     }
     .hold-btn.success {
-      background: var(--green);
-      border-color: var(--green);
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
 
-    /* ---------- power controls ---------- */
-
-    .power-section {
-      margin-top: 24px;
-      padding-top: 16px;
-    }
     .power-btn {
-      border-color: #8b3a3a;
-      color: #ddd;
+      border-color: #5a2a2a;
+      color: #e8cccc;
+      background: var(--surface);
     }
     .power-btn::before {
-      background: rgba(180,50,50,0.25);
-    }
-
-    .color-row {
-      display: flex;
-      gap: 8px;
-      align-items: stretch;
-    }
-    .color-row input[type="color"] {
-      width: 60px;
-      flex-shrink: 0;
-    }
-    .color-row input[type="text"] {
-      flex: 1;
-      min-width: 0;
-      font: inherit;
-      font-size: 16px;
-      font-family: monospace;
-      padding: 8px 10px;
-      background: var(--panel-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-
-    select,
-    .field input[type="number"] {
-      width: 100%;
-      font: inherit;
-      font-size: 16px;
-      padding: 12px;
-      background: var(--panel-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: rgba(198, 43, 62, 0.24);
     }
   </style>
 </head>
@@ -365,9 +628,7 @@
   <details>
     <summary>Setup</summary>
 
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Typography</label>
-    </div>
+    <div class="group-heading">Typography</div>
 
     <div class="field">
       <label>Font</label>
@@ -402,9 +663,7 @@
       </div>
     </div>
 
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Layout</label>
-    </div>
+    <div class="group-heading">Layout</div>
 
     <div class="field">
       <label>Resolution preset</label>
@@ -442,9 +701,7 @@
       <input type="range" id="offsetY">
     </div>
 
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Transitions</label>
-    </div>
+    <div class="group-heading">Transitions</div>
 
     <div class="field">
       <label>Transition style</label>
@@ -467,9 +724,7 @@
       <input type="range" id="flashSpeed" min="0.25" max="3" step="0.05">
     </div>
 
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Glow</label>
-    </div>
+    <div class="group-heading">Glow</div>
 
     <div class="field toggle-row">
       <label>Glow</label>
@@ -486,9 +741,7 @@
       <input type="range" id="glowIntensity" min="0" max="100">
     </div>
 
-    <div class="field" style="margin-top:20px">
-      <label style="font-weight:600;color:var(--text);font-size:14px">Digit rendering</label>
-    </div>
+    <div class="group-heading">Digit rendering</div>
 
     <div class="field">
       <label>Min digits <span class="value" id="minDigitsValue"></span></label>
@@ -532,13 +785,14 @@
   </details>
 
   <div class="preset-section">
-    <div class="preset-heading">Preset</div>
+    <div class="section-heading">Preset</div>
     <button class="hold-btn" id="saveDefaultsBtn"><span class="hold-label">Save current as default</span></button>
     <button class="hold-btn" id="resetUserBtn"><span class="hold-label">Reset to my defaults</span></button>
     <button class="hold-btn" id="resetFactoryBtn"><span class="hold-label">Reset to factory defaults</span></button>
   </div>
 
   <div class="power-section">
+    <div class="section-heading">Power</div>
     <button class="hold-btn power-btn" id="rebootBtn"><span class="hold-label">Reboot</span></button>
     <button class="hold-btn power-btn" id="shutdownBtn"><span class="hold-label">Shutdown</span></button>
   </div>
