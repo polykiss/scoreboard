@@ -532,6 +532,61 @@
       font-variant-numeric: tabular-nums;
     }
 
+    /* ---------- increment section ---------- */
+
+    .increment-section { margin-bottom: 32px; }
+
+    .increment-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 16px 20px;
+    }
+
+    .increment-stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .inc-step-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      font-size: 22px;
+      font-weight: 600;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text);
+      padding: 0;
+      min-height: 52px;
+      touch-action: manipulation;
+      transition: transform 80ms ease-out, filter 80ms ease-out;
+    }
+    .inc-step-btn.pressed {
+      transform: scale(0.96);
+      filter: brightness(1.35);
+      transition: none;
+    }
+    .inc-step-btn:disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .inc-display {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 28px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      min-width: 64px;
+      text-align: center;
+    }
+
     /* ---------- bottom sections (Preset, Power) ---------- */
 
     .section-heading {
@@ -624,6 +679,20 @@
     <button id="setBtn">Set</button>
   </div>
   <button class="reset" id="resetBtn"><span class="reset-label">Reset to 0</span></button>
+
+  <div class="increment-section">
+    <div class="section-heading">Increment</div>
+    <div class="increment-card">
+      <div class="increment-stepper">
+        <button class="inc-step-btn" id="incMinus">−</button>
+        <span class="inc-display" id="incDisplay">1</span>
+        <button class="inc-step-btn" id="incPlus">+</button>
+      </div>
+      <div class="field" style="margin-top:14px;margin-bottom:0">
+        <input type="number" id="incrementInput" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="Set increment…">
+      </div>
+    </div>
+  </div>
 
   <details>
     <summary>Setup</summary>
@@ -854,6 +923,10 @@
     const smallFlashIntervalEl = document.getElementById('smallFlashInterval');
     const bigFlashEnabledEl    = document.getElementById('bigFlashEnabled');
     const bigFlashIntervalEl   = document.getElementById('bigFlashInterval');
+    const incMinusBtn          = document.getElementById('incMinus');
+    const incPlusBtn           = document.getElementById('incPlus');
+    const incDisplay           = document.getElementById('incDisplay');
+    const incrementInput       = document.getElementById('incrementInput');
 
     let ws = null;
     let currentState = null;
@@ -873,7 +946,8 @@
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
      countColorEl, countColorHexEl, setInput, fontSelectEl,
      transitionStyleEl, transitionSpeedEl, flashSpeedEl,
-     minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl]
+     minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl,
+     incrementInput]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -945,6 +1019,13 @@
       if (!interacting.has(bigFlashIntervalEl))
         bigFlashIntervalEl.value = state.bigFlashInterval;
 
+      const inc = state.increment || 1;
+      plusBtn.textContent = '+' + inc;
+      minusBtn.textContent = '\u2212' + inc;
+      incDisplay.textContent = inc;
+      if (!interacting.has(incrementInput)) incrementInput.value = inc;
+      incMinusBtn.disabled = inc <= 1;
+
       const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
       if (hRadio) hRadio.checked = true;
       const vRadio = document.querySelector(`input[name="alignV"][value="${state.alignV}"]`);
@@ -959,8 +1040,14 @@
     function patch(p) { send({ type: 'patch', patch: p }); }
 
     // --- count controls ---
-    plusBtn.addEventListener('click',  () => send({ type: 'increment', by:  1 }));
-    minusBtn.addEventListener('click', () => send({ type: 'increment', by: -1 }));
+    plusBtn.addEventListener('click',  () => {
+      const inc = (currentState && currentState.increment) || 1;
+      send({ type: 'increment', by: inc });
+    });
+    minusBtn.addEventListener('click', () => {
+      const inc = (currentState && currentState.increment) || 1;
+      send({ type: 'increment', by: -inc });
+    });
 
     // Press-state feedback for +1/-1. Driven by pointer events (not :active)
     // because iOS Safari's :active is unreliable on buttons with pointer
@@ -976,6 +1063,21 @@
     }
     trackPress(plusBtn);
     trackPress(minusBtn);
+    trackPress(incMinusBtn);
+    trackPress(incPlusBtn);
+
+    incPlusBtn.addEventListener('click', () => {
+      const cur = (currentState && currentState.increment) || 1;
+      patch({ increment: cur + 1 });
+    });
+    incMinusBtn.addEventListener('click', () => {
+      const cur = (currentState && currentState.increment) || 1;
+      if (cur > 1) patch({ increment: cur - 1 });
+    });
+    incrementInput.addEventListener('change', () => {
+      const v = parseInt(incrementInput.value, 10);
+      if (Number.isFinite(v) && v >= 1) patch({ increment: v });
+    });
 
     setBtn.addEventListener('click', () => {
       const v = parseInt(setInput.value, 10);

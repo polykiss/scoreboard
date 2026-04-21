@@ -34,6 +34,7 @@ const DEFAULT_STATE = {
   bigFlashEnabled: true,
   bigFlashInterval: 100,
   perTapFlashEnabled: false,
+  increment: 1,
   letterSpacing: 0,
   tabularNums: true,
   forceMonospacedDigits: true,
@@ -67,6 +68,7 @@ const PATCH_KEYS = new Set([
   'bigFlashEnabled',
   'bigFlashInterval',
   'perTapFlashEnabled',
+  'increment',
   'letterSpacing',
   'tabularNums',
   'forceMonospacedDigits',
@@ -213,7 +215,7 @@ function handleMessage(raw) {
   switch (msg.type) {
     case 'increment':
       if (typeof msg.by === 'number' && Number.isFinite(msg.by)) {
-        state.count += Math.trunc(msg.by);
+        state.count = Math.max(0, state.count + Math.trunc(msg.by));
       }
       break;
     case 'set':
@@ -241,6 +243,9 @@ function handleMessage(raw) {
         if (msg.patch.flashSpeed !== undefined) {
           var fs = Number(state.flashSpeed);
           state.flashSpeed = Math.max(0.25, Math.min(3.0, isNaN(fs) ? 1 : fs));
+        }
+        if (msg.patch.increment !== undefined) {
+          state.increment = Math.max(1, Math.trunc(Number(state.increment) || 1));
         }
       }
       break;
