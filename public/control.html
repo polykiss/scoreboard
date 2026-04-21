@@ -532,16 +532,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* ---------- increment section ---------- */
-
-    .increment-section { margin-bottom: 32px; }
-
-    .increment-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      padding: 16px 20px;
-    }
+    /* ---------- increment stepper ---------- */
 
     .increment-stepper {
       display: flex;
@@ -680,22 +671,19 @@
   </div>
   <button class="reset" id="resetBtn"><span class="reset-label">Reset to 0</span></button>
 
-  <div class="increment-section">
-    <div class="section-heading">Increment</div>
-    <div class="increment-card">
-      <div class="increment-stepper">
-        <button class="inc-step-btn" id="incMinus">−</button>
-        <span class="inc-display" id="incDisplay">1</span>
-        <button class="inc-step-btn" id="incPlus">+</button>
-      </div>
-      <div class="field" style="margin-top:14px;margin-bottom:0">
-        <input type="number" id="incrementInput" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="Set increment…">
-      </div>
-    </div>
-  </div>
-
   <details>
     <summary>Setup</summary>
+
+    <div class="group-heading">Increment</div>
+
+    <div class="increment-stepper">
+      <button class="inc-step-btn" id="incMinus">−</button>
+      <span class="inc-display" id="incDisplay">1</span>
+      <button class="inc-step-btn" id="incPlus">+</button>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <input type="number" id="incrementInput" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="Set increment…">
+    </div>
 
     <div class="group-heading">Typography</div>
 
