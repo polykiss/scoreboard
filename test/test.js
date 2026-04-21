@@ -2189,3 +2189,88 @@ test('decrement button label reflects current increment value', async () => {
   assert.strictEqual(minus.textContent, '\u22121', 'default decrement label is −1');
   dom.window.close();
 });
+
+// ---------------------------------------------------------------------------
+// Milestone flash — threshold crossing (non-1 increments)
+
+test('increment 3, small interval 10: count 9→12 fires small flash (crossed 10)', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 9 });
+  renderer.applyState({ ...FLASH_BASE, count: 12 });
+  assert.strictEqual(renderer._isLocked(), true, 'flash should fire');
+  assert.strictEqual(countEl.textContent, '10', 'display locks to milestone value 10');
+
+  // Small = 3 cycles * 250ms = 750ms.
+  clock.advance(750);
+  assert.strictEqual(renderer._isLocked(), false, 'flash done');
+  assert.strictEqual(countEl.textContent, '12', 'catches up to real count');
+});
+
+test('increment 5, big interval 100: count 97→102 fires big flash (crossed 100)', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 97 });
+  renderer.applyState({ ...FLASH_BASE, count: 102 });
+  assert.strictEqual(renderer._isLocked(), true, 'big flash should fire');
+  assert.strictEqual(countEl.textContent, '100', 'display locks to milestone 100');
+
+  // Big = 10 cycles * 250ms = 2500ms.
+  clock.advance(2500);
+  assert.strictEqual(renderer._isLocked(), false, 'flash done');
+  assert.strictEqual(countEl.textContent, '102', 'catches up to real count');
+});
+
+test('increment 1, small interval 10: count 9→10 still fires (backward compatible)', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 9 });
+  renderer.applyState({ ...FLASH_BASE, count: 10 });
+  assert.strictEqual(renderer._isLocked(), true, 'flash should fire');
+  assert.strictEqual(countEl.textContent, '10', 'display shows 10');
+  clock.advance(750);
+  assert.strictEqual(renderer._isLocked(), false);
+});
+
+test('increment 250, small interval 10: one flash per update, not 25 stacked', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  const state = { ...FLASH_BASE, bigFlashEnabled: false };
+  renderer.applyState({ ...state, count: 5 });
+  renderer.applyState({ ...state, count: 255 });
+  assert.strictEqual(renderer._isLocked(), true, 'flash fires');
+  // Display locks to the first small milestone crossed (10).
+  assert.strictEqual(countEl.textContent, '10', 'locks to first milestone crossed');
+
+  // One small flash = 750ms. If 25 flashes stacked, it would take 18750ms.
+  // After the first flash, catch-up triggers one more (10→255 crosses 20),
+  // but at most one flash fires per count-update cycle.
+  clock.advance(750);
+  // Catch-up fires another single flash for 10→255.
+  assert.strictEqual(renderer._isLocked(), true, 'catch-up flash fires');
+  assert.strictEqual(countEl.textContent, '20', 'catches up to next milestone');
+  clock.advance(750);
+  // Another catch-up: 20→255.
+  assert.strictEqual(renderer._isLocked(), true, 'still chaining');
+  // The chain continues, but the key point: each step is one flash,
+  // not 25 stacked from a single update.
+});
+
+test('decrement crossing a threshold does NOT fire a flash', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 12 });
+  renderer.applyState({ ...FLASH_BASE, count: 8 }); // crosses 10 downward
+  assert.strictEqual(renderer._isLocked(), false, 'no flash on decrement');
+  assert.strictEqual(countEl.textContent, '8');
+});
+
+test('big trumps small when both thresholds crossed in same increment', () => {
+  const { renderer, document, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 95 });
+  renderer.applyState({ ...FLASH_BASE, count: 105 }); // crosses 100 (big) and 100 (small)
+  assert.strictEqual(renderer._isLocked(), true, 'flash fires');
+  assert.strictEqual(countEl.textContent, '100', 'locks to big milestone');
+
+  // Should be big flash (2500ms), not small (750ms).
+  clock.advance(1500);
+  assert.strictEqual(renderer._isLocked(), true, 'still running — big flash');
+  clock.advance(1100);
+  assert.strictEqual(renderer._isLocked(), false, 'big flash done');
+  assert.strictEqual(countEl.textContent, '105', 'catches up');
+});

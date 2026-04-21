@@ -488,28 +488,40 @@
       onComplete();
     }
 
-    function checkMilestone(state, newCount) {
-      var bigEnabled = state.bigFlashEnabled
-        && Number(state.bigFlashInterval) > 0
-        && newCount % Number(state.bigFlashInterval) === 0;
-      if (bigEnabled) return BIG_CYCLES;
-      var smallEnabled = state.smallFlashEnabled
-        && Number(state.smallFlashInterval) > 0
-        && newCount % Number(state.smallFlashInterval) === 0;
-      if (smallEnabled) return SMALL_CYCLES;
+    function checkMilestone(state, prevCount, newCount) {
+      var bigInt = Number(state.bigFlashInterval) || 0;
+      if (state.bigFlashEnabled && bigInt > 0
+          && Math.floor(newCount / bigInt) > Math.floor(prevCount / bigInt)) {
+        return BIG_CYCLES;
+      }
+      var smallInt = Number(state.smallFlashInterval) || 0;
+      if (state.smallFlashEnabled && smallInt > 0
+          && Math.floor(newCount / smallInt) > Math.floor(prevCount / smallInt)) {
+        return SMALL_CYCLES;
+      }
       return 0;
     }
 
+    // Return the first multiple of `interval` crossed when going from
+    // prevCount to newCount:  Math.ceil((prevCount + 1) / interval) * interval
+    function milestoneValue(prevCount, newCount, state, cycles) {
+      var interval = (cycles === BIG_CYCLES)
+        ? Number(state.bigFlashInterval)
+        : Number(state.smallFlashInterval);
+      return Math.ceil((prevCount + 1) / interval) * interval;
+    }
+
     // Check flash eligibility after a transition completes.
-    function checkFlashAfterTransition(state, displayedCount, preCount) {
+    function checkFlashAfterTransition(state, displayedCount, preCount, milestoneAlreadyHandled) {
+      if (milestoneAlreadyHandled) {
+        // Milestone was detected before the transition; flash is already
+        // running.  Nothing further to do — the queue resolves when the
+        // flash ends.
+        return;
+      }
       var increased = preCount !== null && displayedCount > preCount;
 
       if (increased) {
-        var cycles = checkMilestone(state, displayedCount);
-        if (cycles > 0) {
-          startMilestoneFlash(cycles);
-          return; // Queue deferred to after flash ends
-        }
         if (!afterFlashCatchUp && state.perTapFlashEnabled && !perTapRunning) {
           startPerTapFlash();
         }
@@ -566,23 +578,45 @@
     // Main count update: run transition then check flash.
     function doCountUpdate(state) {
       var newCount = state.count;
-      var newText = formatCount(newCount, state);
       var oldText = displayedText;
       var preCount = lastCount;
 
+      // Detect milestone before transitioning so we can display the
+      // milestone value during the flash instead of the actual new count.
+      var increased = preCount !== null && newCount > preCount;
+      var cycles = increased ? checkMilestone(state, preCount, newCount) : 0;
+      var hasMilestone = cycles > 0;
+
+      // If a milestone was crossed, transition to the milestone value and
+      // queue the real count for after the flash.
+      var transitionCount = newCount;
+      if (hasMilestone) {
+        transitionCount = milestoneValue(preCount, newCount, state, cycles);
+      }
+
+      var newText = formatCount(transitionCount, state);
       var changedPositions = findChangedPositions(oldText, newText);
       var style = state.transitionStyle || 'none';
       // Slide direction based on overall count comparison.
       var direction = (newCount > (preCount || 0)) ? 'up' : 'down';
 
+      // When showing a milestone value, ensure the real count is queued
+      // so resolveQueue catches up after the flash ends.
+      if (hasMilestone && transitionCount !== newCount) {
+        latestCount = newCount;
+        latestState = state;
+      }
+
       if (style === 'none') {
         renderDigits(newText);
-        lastCount = newCount;
-        checkFlashAfterTransition(state, newCount, preCount);
+        lastCount = transitionCount;
+        if (hasMilestone) startMilestoneFlash(cycles);
+        checkFlashAfterTransition(state, transitionCount, preCount, hasMilestone);
       } else {
         startTransition(oldText, newText, changedPositions, style, direction, state, function () {
-          lastCount = newCount;
-          checkFlashAfterTransition(latestState || state, newCount, preCount);
+          lastCount = transitionCount;
+          if (hasMilestone) startMilestoneFlash(cycles);
+          checkFlashAfterTransition(latestState || state, transitionCount, preCount, hasMilestone);
         });
       }
     }
