@@ -697,27 +697,27 @@
       }
 
       // Power state: replace count with shutdown/reboot message.
-      // Use the scoreboard's current font, size, color, and vertical
-      // alignment so the message appears in the same visual position.
+      // Status messages reuse the scoreboard's selected font and vertical
+      // alignment so they share the count's visual slot, but render at
+      // 40% of the count's font-size in white — they read as secondary
+      // status text, independent of the configured text color.
       if (state.shuttingDown || state.rebooting) {
         var msg = state.shuttingDown ? 'Powering off...' : 'Rebooting...';
         transitionActive = false;
         animationLocked = false;
         perTapRunning = false;
-        // Horizontal center, but keep vertical alignment and Y offset.
         body.style.justifyContent = 'center';
         body.style.alignItems = V_MAP[state.alignV] || 'center';
         offsetEl.style.transform =
           'translate(0px, ' + (state.offsetY || 0) + 'px)';
-        // Use scoreboard font, size, and color.
         countEl.innerHTML = '';
-        countEl.style.fontSize = state.fontSize + 'px';
+        countEl.style.fontSize = Math.round((state.fontSize || 400) * 0.4) + 'px';
         applyFont(state.selectedFont);
         countEl.style.letterSpacing = '';
         countEl.style.textShadow = 'none';
         countEl.style.padding = '0';
         countEl.style.fontVariantNumeric = '';
-        countEl.style.color = state.countColor || '#ffffff';
+        countEl.style.color = '#ffffff';
         countEl.textContent = msg;
         displayedText = '';
         return;
@@ -773,6 +773,10 @@
 
     return {
       applyState: applyState,
+      // Expose font application so the boot/version overlay in display.html
+      // can use the same @font-face injection + fontFamily assignment that
+      // the main renderer uses for the count.
+      applyFont: applyFont,
       // test hooks
       _getLoadedFonts: function () { return Array.from(loadedFonts); },
       _getCurrentFontFamily: function () { return currentFontFamily; },

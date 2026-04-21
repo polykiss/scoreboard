@@ -1758,8 +1758,10 @@ test('display shows shutdown message when shuttingDown is true', () => {
 
   renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 500, shuttingDown: true });
   assert.strictEqual(countEl.textContent, 'Powering off...');
-  assert.strictEqual(countEl.style.fontSize, '500px',
-    'shutdown message should use state fontSize');
+  assert.strictEqual(countEl.style.fontSize, '200px',
+    'shutdown message renders at 40% of state fontSize');
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'shutdown message is white regardless of countColor');
 });
 
 test('display shows reboot message when rebooting is true', () => {
@@ -1769,8 +1771,10 @@ test('display shows reboot message when rebooting is true', () => {
 
   renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 600, rebooting: true });
   assert.strictEqual(countEl.textContent, 'Rebooting...');
-  assert.strictEqual(countEl.style.fontSize, '600px',
-    'reboot message should use state fontSize');
+  assert.strictEqual(countEl.style.fontSize, '240px',
+    'reboot message renders at 40% of state fontSize');
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'reboot message is white regardless of countColor');
 });
 
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {
@@ -2345,7 +2349,7 @@ test('big trumps small when both thresholds crossed in same increment', () => {
 // ---------------------------------------------------------------------------
 // Fix 1: shutdown/reboot messages use state font, size, color, vertical alignment
 
-test('shutdown message uses state font, fontSize, countColor, and vertical alignment', () => {
+test('shutdown message: 40% fontSize, white, selected font, state vertical alignment', () => {
   const { renderer, document, countEl, offsetEl, clock } = setupRenderer(true);
   const state = {
     ...DEFAULT_STATE,
@@ -2359,14 +2363,16 @@ test('shutdown message uses state font, fontSize, countColor, and vertical align
   renderer.applyState(state);
   renderer.applyState({ ...state, shuttingDown: true });
   assert.strictEqual(countEl.textContent, 'Powering off...');
-  assert.strictEqual(countEl.style.fontSize, '700px', 'uses state fontSize');
-  assert.ok(countEl.style.color.includes('255') && countEl.style.color.includes('0'),
-    'uses state countColor (red)');
+  assert.strictEqual(countEl.style.fontSize, '280px', '40% of state fontSize');
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'white regardless of countColor');
+  assert.match(countEl.style.fontFamily, /jd_led5/, 'uses selected font');
   assert.strictEqual(document.body.style.alignItems, 'flex-end', 'uses state alignV');
+  assert.strictEqual(document.body.style.justifyContent, 'center', 'horizontally centered');
   assert.ok(offsetEl.style.transform.includes('50'), 'uses state offsetY');
 });
 
-test('reboot message uses state font, fontSize, countColor, and vertical alignment', () => {
+test('reboot message: 40% fontSize, white, selected font, state vertical alignment', () => {
   const { renderer, document, countEl, offsetEl, clock } = setupRenderer(true);
   const state = {
     ...DEFAULT_STATE,
@@ -2375,15 +2381,27 @@ test('reboot message uses state font, fontSize, countColor, and vertical alignme
     countColor: '#00ff00',
     alignV: 'top',
     offsetY: -30,
+    selectedFont: 'jd_led5',
   };
   renderer.applyState(state);
   renderer.applyState({ ...state, rebooting: true });
   assert.strictEqual(countEl.textContent, 'Rebooting...');
-  assert.strictEqual(countEl.style.fontSize, '500px', 'uses state fontSize');
-  assert.ok(countEl.style.color.includes('0') && countEl.style.color.includes('255'),
-    'uses state countColor (green)');
+  assert.strictEqual(countEl.style.fontSize, '200px', '40% of state fontSize');
+  assert.strictEqual(countEl.style.color, 'rgb(255, 255, 255)',
+    'white regardless of countColor');
+  assert.match(countEl.style.fontFamily, /jd_led5/, 'uses selected font');
   assert.strictEqual(document.body.style.alignItems, 'flex-start', 'uses state alignV');
+  assert.strictEqual(document.body.style.justifyContent, 'center', 'horizontally centered');
   assert.ok(offsetEl.style.transform.includes('-30'), 'uses state offsetY');
+});
+
+test('renderer exposes applyFont for boot version styling', () => {
+  const { renderer, countEl } = setupRenderer(true);
+  // applyFont should be callable without applyState having run — the boot
+  // sequence in display.html uses it to style the version/commit hash text.
+  renderer.applyFont('jd_led5');
+  assert.match(countEl.style.fontFamily, /jd_led5/,
+    'applyFont sets fontFamily on the count element');
 });
 
 // ---------------------------------------------------------------------------

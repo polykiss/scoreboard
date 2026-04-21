@@ -123,22 +123,25 @@
     let versionText = null;
 
     function applyVersionStyle(state) {
-      // Style the version text using the scoreboard's current settings
-      // so it appears in the same position/font/color as the count.
+      // Version text shares the count's visual slot (same font, alignment,
+      // Y offset) but renders at 40% of fontSize in white so it reads as
+      // status text.  Before state arrives, default to jd_led5 at 120px.
       const el = document.getElementById('count');
+      document.body.style.justifyContent = 'center';
       if (state) {
-        document.body.style.justifyContent = 'center';
         const V = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
         document.body.style.alignItems = V[state.alignV] || 'center';
         document.getElementById('offset').style.transform =
           'translate(0px, ' + (state.offsetY || 0) + 'px)';
-        el.style.fontSize = (state.fontSize || 400) + 'px';
-        el.style.color = state.countColor || '#555';
+        el.style.fontSize = Math.round((state.fontSize || 400) * 0.4) + 'px';
+        el.style.color = '#ffffff';
+        renderer.applyFont(state.selectedFont || 'jd_led5');
       } else {
-        document.body.style.justifyContent = 'center';
         document.body.style.alignItems = 'center';
-        el.style.fontSize = '28px';
-        el.style.color = '#555';
+        document.getElementById('offset').style.transform = 'translate(0px, 0px)';
+        el.style.fontSize = '120px';
+        el.style.color = '#ffffff';
+        renderer.applyFont('jd_led5');
       }
     }
 
