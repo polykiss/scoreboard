@@ -713,10 +713,18 @@
     </div>
 
     <div class="field">
-      <label>Color</label>
+      <label>Text color</label>
       <div class="color-row">
         <input type="color" id="countColor">
         <input type="text" id="countColorHex" maxlength="7" placeholder="#ffffff">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Background color</label>
+      <div class="color-row">
+        <input type="color" id="bgColor">
+        <input type="text" id="bgColorHex" maxlength="7" placeholder="#000000">
       </div>
     </div>
 
@@ -899,6 +907,8 @@
     const fontSelectEl       = document.getElementById('selectedFont');
     const countColorEl       = document.getElementById('countColor');
     const countColorHexEl    = document.getElementById('countColorHex');
+    const bgColorEl          = document.getElementById('bgColor');
+    const bgColorHexEl       = document.getElementById('bgColorHex');
     const minDigitsEl             = document.getElementById('minDigits');
     const minDigitsValue          = document.getElementById('minDigitsValue');
     const fadeLeadingZerosEl      = document.getElementById('fadeLeadingZeros');
@@ -932,7 +942,7 @@
       el.addEventListener('blur',          stop);
     }
     [fontSizeEl, letterSpacingEl, offsetXEl, offsetYEl, glowDistanceEl, glowIntensityEl,
-     countColorEl, countColorHexEl, setInput, fontSelectEl,
+     countColorEl, countColorHexEl, bgColorEl, bgColorHexEl, setInput, fontSelectEl,
      transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl,
      incrementInput]
@@ -972,6 +982,9 @@
 
       if (!interacting.has(countColorEl)) countColorEl.value = state.countColor || '#ffffff';
       if (!interacting.has(countColorHexEl)) countColorHexEl.value = state.countColor || '#ffffff';
+
+      if (!interacting.has(bgColorEl)) bgColorEl.value = state.bgColor || '#000000';
+      if (!interacting.has(bgColorHexEl)) bgColorHexEl.value = state.bgColor || '#000000';
 
       if (!interacting.has(fontSelectEl) && state.selectedFont) {
         // Only update if the option exists (dropdown may not be populated yet).
@@ -1259,6 +1272,17 @@
       if (/^#[0-9a-fA-F]{6}$/.test(v)) {
         countColorEl.value = v;
         patch({ countColor: v });
+      }
+    });
+    bgColorEl.addEventListener('input', () => {
+      bgColorHexEl.value = bgColorEl.value;
+      patch({ bgColor: bgColorEl.value });
+    });
+    bgColorHexEl.addEventListener('input', () => {
+      const v = bgColorHexEl.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        bgColorEl.value = v;
+        patch({ bgColor: v });
       }
     });
     glowDistanceEl.addEventListener('input', () => {

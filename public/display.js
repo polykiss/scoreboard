@@ -652,9 +652,15 @@
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
       countEl.style.fontSize = state.fontSize + 'px';
-      // Always set the count color explicitly so it overrides the boot
-      // version-display's grey and any stale inline styles.
-      countEl.style.color = state.countColor || '#ffffff';
+      // Background + text color: set inline for the normal state, and
+      // publish as CSS custom properties so the .inverted rule can swap
+      // them without hard-coded colors.
+      var bgColor = state.bgColor || '#000000';
+      var textColor = state.countColor || '#ffffff';
+      body.style.background = bgColor;
+      body.style.setProperty('--bg-color', bgColor);
+      body.style.setProperty('--text-color', textColor);
+      countEl.style.color = textColor;
 
       // Pad #count by the glow's visual extent so the glow halo around
       // edge characters is never clipped by the viewport overflow:hidden.

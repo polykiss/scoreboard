@@ -42,6 +42,7 @@ const DEFAULT_STATE = {
   fadeLeadingZeros: 30,
   useCommas: true,
   countColor: '#ffffff',
+  bgColor: '#000000',
   transitionSpeed: 1.0,
   flashSpeed: 1.0,
   shuttingDown: false,
@@ -76,6 +77,7 @@ const PATCH_KEYS = new Set([
   'fadeLeadingZeros',
   'useCommas',
   'countColor',
+  'bgColor',
   'transitionSpeed',
   'flashSpeed',
 ]);

@@ -2041,6 +2041,98 @@ test('countColor participates in user defaults round-trip', () => {
 });
 
 // ---------------------------------------------------------------------------
+// bgColor — configurable background color
+
+test('bgColor in DEFAULT_STATE defaults to #000000', () => {
+  assert.strictEqual(DEFAULT_STATE.bgColor, '#000000');
+});
+
+test('bgColor is in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('bgColor'));
+});
+
+test('bgColor applies to body background on state broadcast', () => {
+  const { renderer, document } = setupRenderer(true);
+  renderer.applyState({ ...DEFAULT_STATE, count: 0, bgColor: '#1a2b3c' });
+  assert.strictEqual(document.body.style.background, 'rgb(26, 43, 60)',
+    'body background reflects state.bgColor');
+});
+
+test('bgColor live update: changing bgColor without count change updates immediately', () => {
+  const { renderer, document } = setupRenderer(true);
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, bgColor: '#000000' });
+  assert.strictEqual(document.body.style.background, 'rgb(0, 0, 0)');
+
+  renderer.applyState({ ...DEFAULT_STATE, count: 5, bgColor: '#112233' });
+  assert.strictEqual(document.body.style.background, 'rgb(17, 34, 51)',
+    'bgColor updates immediately without count change');
+});
+
+test('CSS custom properties --bg-color and --text-color are set from state', () => {
+  const { renderer, document } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE, count: 0, bgColor: '#112233', countColor: '#aabbcc',
+  });
+  assert.strictEqual(document.body.style.getPropertyValue('--bg-color'), '#112233');
+  assert.strictEqual(document.body.style.getPropertyValue('--text-color'), '#aabbcc');
+});
+
+test('.inverted CSS rule uses custom properties for swap, not hardcoded colors', () => {
+  // The inverted rule must reference var(--text-color) / var(--bg-color),
+  // so the invert flash swaps the user's configured colors rather than
+  // hard-coding black/white.
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'display.html'), 'utf8');
+  assert.match(html, /body\.inverted\s*\{[^}]*var\(--text-color/,
+    'body.inverted background should use var(--text-color)');
+  assert.match(html, /body\.inverted\s+#count\s*\{[^}]*var\(--bg-color/,
+    'body.inverted #count color should use var(--bg-color)');
+});
+
+test('bgColor participates in user defaults round-trip', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { bgColor: '#123456' },
+  }));
+  assert.strictEqual(getState().bgColor, '#123456');
+
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+  assert.strictEqual(getState().userDefaults.bgColor, '#123456');
+
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { bgColor: '#fedcba' },
+  }));
+  assert.strictEqual(getState().bgColor, '#fedcba');
+
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+  assert.strictEqual(getState().bgColor, '#123456');
+  resetState();
+});
+
+test('factory reset restores bgColor to #000000', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { bgColor: '#ff00ff' },
+  }));
+  handleMessage(JSON.stringify({ type: 'reset-to-factory-defaults' }));
+  assert.strictEqual(getState().bgColor, '#000000');
+  resetState();
+});
+
+test('controller has Background color picker with matching hex input', () => {
+  const { dom } = loadControlHtml();
+  const { document } = dom.window;
+  assert.ok(document.getElementById('bgColor'), 'bgColor color input exists');
+  assert.ok(document.getElementById('bgColorHex'), 'bgColorHex text input exists');
+  // Label rename from "Color" to "Text color".
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'control.html'), 'utf8');
+  assert.match(html, /<label>Text color<\/label>/, 'text-color label renamed');
+  assert.match(html, /<label>Background color<\/label>/, 'bg-color label present');
+  dom.window.close();
+});
+
+// ---------------------------------------------------------------------------
 // Letter spacing via margin-left
 
 test('letter spacing margin is consistent across font sizes', () => {

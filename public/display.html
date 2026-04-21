@@ -10,7 +10,6 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      background: #000;
       overflow: hidden;
       cursor: none;
     }
@@ -18,6 +17,8 @@
     body {
       display: flex;
       /* justify-content / align-items set from state */
+      /* background: set inline from state.bgColor */
+      background: #000;
     }
 
     #offset {
@@ -94,14 +95,16 @@
     .slide-in[data-dir="down"] { animation: slide-down-in 125ms ease-out; }
     .slide-out[data-dir="down"]{ animation: slide-down-out 125ms ease-out forwards; }
 
-    /* Milestone flash: invert the full viewport. The class goes on <body>
-       so the white fills the whole screen rather than the count's box.
-       Glow (text-shadow) layers on top and stays visible. */
+    /* Milestone flash: invert the full viewport.  Colors swap via the
+       --bg-color / --text-color custom properties set from state, so the
+       inversion respects the user's configured background and text colors
+       rather than hard-coding black/white.  !important is required to
+       beat the inline body background / count color set by applyState. */
     body.inverted {
-      background: #fff;
+      background: var(--text-color, #fff) !important;
     }
     body.inverted #count {
-      color: #000 !important;
+      color: var(--bg-color, #000) !important;
     }
   </style>
 </head>
