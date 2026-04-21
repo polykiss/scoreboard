@@ -1738,24 +1738,24 @@ test('loadState forces shuttingDown and rebooting to false', () => {
 
 test('display shows shutdown message when shuttingDown is true', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
-  renderer.applyState({ ...FLASH_BASE, count: 42 });
+  renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 500 });
   assert.strictEqual(countEl.textContent, '42');
 
-  renderer.applyState({ ...FLASH_BASE, count: 42, shuttingDown: true });
+  renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 500, shuttingDown: true });
   assert.strictEqual(countEl.textContent, 'Powering off...');
-  assert.strictEqual(countEl.style.fontSize, '120px',
-    'shutdown message should use 120px font');
+  assert.strictEqual(countEl.style.fontSize, '500px',
+    'shutdown message should use state fontSize');
 });
 
 test('display shows reboot message when rebooting is true', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
-  renderer.applyState({ ...FLASH_BASE, count: 42 });
+  renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 600 });
   assert.strictEqual(countEl.textContent, '42');
 
-  renderer.applyState({ ...FLASH_BASE, count: 42, rebooting: true });
+  renderer.applyState({ ...FLASH_BASE, count: 42, fontSize: 600, rebooting: true });
   assert.strictEqual(countEl.textContent, 'Rebooting...');
-  assert.strictEqual(countEl.style.fontSize, '120px',
-    'reboot message should use 120px font');
+  assert.strictEqual(countEl.style.fontSize, '600px',
+    'reboot message should use state fontSize');
 });
 
 test('migration: old glowIntensity (no glowDistance) maps to distance', () => {
@@ -2273,4 +2273,93 @@ test('big trumps small when both thresholds crossed in same increment', () => {
   clock.advance(1100);
   assert.strictEqual(renderer._isLocked(), false, 'big flash done');
   assert.strictEqual(countEl.textContent, '105', 'catches up');
+});
+
+// ---------------------------------------------------------------------------
+// Fix 1: shutdown/reboot messages use state font, size, color, vertical alignment
+
+test('shutdown message uses state font, fontSize, countColor, and vertical alignment', () => {
+  const { renderer, document, countEl, offsetEl, clock } = setupRenderer(true);
+  const state = {
+    ...DEFAULT_STATE,
+    count: 42,
+    fontSize: 700,
+    countColor: '#ff0000',
+    alignV: 'bottom',
+    offsetY: 50,
+    selectedFont: 'jd_led5',
+  };
+  renderer.applyState(state);
+  renderer.applyState({ ...state, shuttingDown: true });
+  assert.strictEqual(countEl.textContent, 'Powering off...');
+  assert.strictEqual(countEl.style.fontSize, '700px', 'uses state fontSize');
+  assert.ok(countEl.style.color.includes('255') && countEl.style.color.includes('0'),
+    'uses state countColor (red)');
+  assert.strictEqual(document.body.style.alignItems, 'flex-end', 'uses state alignV');
+  assert.ok(offsetEl.style.transform.includes('50'), 'uses state offsetY');
+});
+
+test('reboot message uses state font, fontSize, countColor, and vertical alignment', () => {
+  const { renderer, document, countEl, offsetEl, clock } = setupRenderer(true);
+  const state = {
+    ...DEFAULT_STATE,
+    count: 10,
+    fontSize: 500,
+    countColor: '#00ff00',
+    alignV: 'top',
+    offsetY: -30,
+  };
+  renderer.applyState(state);
+  renderer.applyState({ ...state, rebooting: true });
+  assert.strictEqual(countEl.textContent, 'Rebooting...');
+  assert.strictEqual(countEl.style.fontSize, '500px', 'uses state fontSize');
+  assert.ok(countEl.style.color.includes('0') && countEl.style.color.includes('255'),
+    'uses state countColor (green)');
+  assert.strictEqual(document.body.style.alignItems, 'flex-start', 'uses state alignV');
+  assert.ok(offsetEl.style.transform.includes('-30'), 'uses state offsetY');
+});
+
+// ---------------------------------------------------------------------------
+// Fix 2: max font size raised to 1000
+
+test('font size slider max is 1000 for 1080p preset', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'control.html'), 'utf8');
+  assert.ok(html.includes('fontSizeMax: 1000'), '1080p preset max should be 1000');
+});
+
+// ---------------------------------------------------------------------------
+// Fix 3: preset switch only changes resolutionPreset
+
+test('switching resolution preset only sends resolutionPreset in patch', async () => {
+  const { dom, sends } = loadControlHtml();
+  await new Promise((resolve) => setImmediate(resolve));
+  const { document } = dom.window;
+
+  // Simulate state with custom fontSize
+  const radio4k = document.querySelector('input[name="preset"][value="4K"]');
+  radio4k.checked = true;
+  fireEvent(radio4k, 'change');
+
+  const lastSend = sends.at(-1);
+  assert.strictEqual(lastSend.type, 'patch');
+  assert.strictEqual(lastSend.patch.resolutionPreset, '4K');
+  assert.strictEqual(lastSend.patch.fontSize, undefined,
+    'fontSize should NOT be sent with preset switch');
+  assert.strictEqual(lastSend.patch.offsetX, undefined,
+    'offsetX should NOT be sent with preset switch');
+  assert.strictEqual(lastSend.patch.offsetY, undefined,
+    'offsetY should NOT be sent with preset switch');
+
+  dom.window.close();
+});
+
+// ---------------------------------------------------------------------------
+// Fix 4: font size persists and restores correctly after reboot
+
+test('after persisting state with fontSize 600, display renders at that size', () => {
+  const { renderer, countEl } = setupRenderer(true);
+  renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 600 });
+  assert.strictEqual(countEl.style.fontSize, '600px',
+    'fontSize should be applied from state');
 });

@@ -673,29 +673,29 @@
       }
 
       // Power state: replace count with shutdown/reboot message.
-      // Override ALL visual styles for a consistent, readable message
-      // regardless of what the scoreboard was configured to.
+      // Use the scoreboard's current font, size, color, and vertical
+      // alignment so the message appears in the same visual position.
       if (state.shuttingDown || state.rebooting) {
         var msg = state.shuttingDown ? 'Powering off...' : 'Rebooting...';
         transitionActive = false;
         animationLocked = false;
         perTapRunning = false;
-        // Centre the message regardless of scoreboard alignment/offset.
+        // Horizontal center, but keep vertical alignment and Y offset.
         body.style.justifyContent = 'center';
-        body.style.alignItems = 'center';
-        offsetEl.style.transform = 'translate(0px, 0px)';
-        // Clean, readable typography.
+        body.style.alignItems = V_MAP[state.alignV] || 'center';
+        offsetEl.style.transform =
+          'translate(0px, ' + (state.offsetY || 0) + 'px)';
+        // Use scoreboard font, size, and color.
         countEl.innerHTML = '';
-        countEl.style.fontSize = '120px';
-        countEl.style.fontFamily = 'monospace';
+        countEl.style.fontSize = state.fontSize + 'px';
+        applyFont(state.selectedFont);
         countEl.style.letterSpacing = '';
         countEl.style.textShadow = 'none';
         countEl.style.padding = '0';
         countEl.style.fontVariantNumeric = '';
-        countEl.style.color = '#ffffff';
+        countEl.style.color = state.countColor || '#ffffff';
         countEl.textContent = msg;
         displayedText = '';
-        currentFontFamily = null;
         return;
       }
 

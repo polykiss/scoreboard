@@ -860,7 +860,7 @@
     // Resolution presets drive slider bounds and "default" font size.
     const PRESETS = {
       '1080p': {
-        fontSizeMin: 50,  fontSizeMax: 800,  fontSizeDefault: 400,
+        fontSizeMin: 50,  fontSizeMax: 1000,  fontSizeDefault: 400,
         offsetMin: -500,  offsetMax: 500,
       },
       '4K': {
@@ -1279,21 +1279,16 @@
       el.addEventListener('change', () => el.checked && patch({ alignV: el.value }))
     );
 
-    // Resolution preset: update local bounds, clamp offsets to new range,
-    // jump font size to the preset default, send one patch.
+    // Resolution preset: update local slider bounds and send only the
+    // preset key.  User's fontSize/offsets are preserved — the preset
+    // just changes which bounds the sliders enforce.
     document.querySelectorAll('input[name="preset"]').forEach(el => {
       el.addEventListener('change', () => {
         if (!el.checked) return;
         const p = PRESETS[el.value];
         if (!p) return;
         applyPresetBounds(el.value);
-        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-        patch({
-          resolutionPreset: el.value,
-          fontSize: p.fontSizeDefault,
-          offsetX: clamp(currentState?.offsetX ?? 0, p.offsetMin, p.offsetMax),
-          offsetY: clamp(currentState?.offsetY ?? 0, p.offsetMin, p.offsetMax),
-        });
+        patch({ resolutionPreset: el.value });
       });
     });
 

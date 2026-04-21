@@ -120,6 +120,27 @@
     let ws = null;
     let bootDone = false;
     let pendingState = null;
+    let versionText = null;
+
+    function applyVersionStyle(state) {
+      // Style the version text using the scoreboard's current settings
+      // so it appears in the same position/font/color as the count.
+      const el = document.getElementById('count');
+      if (state) {
+        document.body.style.justifyContent = 'center';
+        const V = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
+        document.body.style.alignItems = V[state.alignV] || 'center';
+        document.getElementById('offset').style.transform =
+          'translate(0px, ' + (state.offsetY || 0) + 'px)';
+        el.style.fontSize = (state.fontSize || 400) + 'px';
+        el.style.color = state.countColor || '#555';
+      } else {
+        document.body.style.justifyContent = 'center';
+        document.body.style.alignItems = 'center';
+        el.style.fontSize = '28px';
+        el.style.color = '#555';
+      }
+    }
 
     function connect() {
       ws = new WebSocket(`ws://${location.host}`);
@@ -129,6 +150,8 @@
           if (msg.type === 'state') {
             if (!bootDone) {
               pendingState = msg.state;
+              // Update version display to match scoreboard positioning.
+              if (versionText) applyVersionStyle(msg.state);
             } else {
               renderer.applyState(msg.state);
             }
@@ -141,22 +164,18 @@
 
     function finishBoot() {
       bootDone = true;
+      versionText = null;
       if (pendingState) renderer.applyState(pendingState);
     }
 
-    // Show commit hash briefly on initial load.  Style it explicitly
-    // because applyState hasn't run yet (body flex defaults leave #count
-    // tiny and in the corner).
+    // Show commit hash briefly on initial load.
     fetch('/version')
       .then(r => r.json())
       .then(data => {
-        document.body.style.justifyContent = 'center';
-        document.body.style.alignItems = 'center';
+        versionText = data.commit || 'dev';
         const el = document.getElementById('count');
-        el.style.fontSize = '28px';
-        el.style.fontFamily = 'monospace';
-        el.style.color = '#555';
-        el.textContent = data.commit || 'dev';
+        el.textContent = versionText;
+        applyVersionStyle(pendingState);
         setTimeout(finishBoot, 3000);
       })
       .catch(() => {
