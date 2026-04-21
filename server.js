@@ -196,8 +196,13 @@ app.get('/fonts', (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-function broadcast() {
-  const msg = JSON.stringify({ type: 'state', state });
+// `lastAction` is a transient tag that tells the display which kind of
+// mutation produced this state, so it can gate milestone/per-tap flashes
+// to increment actions only. Not part of state, not persisted.
+function broadcast(lastAction) {
+  const payload = { type: 'state', state };
+  if (lastAction) payload.lastAction = lastAction;
+  const msg = JSON.stringify(payload);
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
   }
@@ -283,7 +288,7 @@ function handleMessage(raw) {
   }
 
   persistState();
-  broadcast();
+  broadcast(msg.type);
 
   // Delayed power actions — give the UI time to show the status message.
   if (msg.type === 'shutdown') {

@@ -153,7 +153,7 @@
               // Update version display to match scoreboard positioning.
               if (versionText) applyVersionStyle(msg.state);
             } else {
-              renderer.applyState(msg.state);
+              renderer.applyState(msg.state, { lastAction: msg.lastAction });
             }
           }
         } catch {}

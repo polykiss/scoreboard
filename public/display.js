@@ -28,6 +28,7 @@
     let lastCount = null;       // Count before current transition (for delta)
     let latestCount = null;     // Most recent count from server
     let latestState = null;     // Most recent full state from server
+    let latestLastAction = null; // Broadcast action tag — flashes are gated on 'increment'
     let displayedText = '';     // Formatted text currently in the DOM
 
     // Animation state machine
@@ -35,7 +36,7 @@
     let animationStep = 0;
     let animationTotalSteps = 0;
     let transitionActive = false; // Non-instant transition playing
-    let afterFlashCatchUp = false; // Suppress per-tap on catch-up after flash
+    let afterFlashCatchUp = false; // Suppress flash/per-tap on catch-up after flash
 
     let perTapRunning = false;
 
@@ -521,13 +522,19 @@
       }
       var increased = preCount !== null && displayedCount > preCount;
 
-      if (increased) {
-        if (!afterFlashCatchUp && state.perTapFlashEnabled && !perTapRunning) {
-          startPerTapFlash();
-        }
+      if (increased && isIncrementAction() && !afterFlashCatchUp
+          && state.perTapFlashEnabled && !perTapRunning) {
+        startPerTapFlash();
       }
       afterFlashCatchUp = false;
       resolveQueue(state);
+    }
+
+    // Flashes (milestone + per-tap) only fire for increment actions.
+    // Undefined lastAction (e.g. tests or initial boot snapshot) is treated
+    // permissively as increment so existing behavior is preserved.
+    function isIncrementAction() {
+      return latestLastAction == null || latestLastAction === 'increment';
     }
 
     // If there's a pending count different from what's displayed, start
@@ -546,8 +553,13 @@
         animationLocked = false;
         animationStep = 0;
         animationTotalSteps = 0;
-        afterFlashCatchUp = true;
-        if (latestState) resolveQueue(latestState);
+        // Only mark as catch-up when there's an actual pending update to
+        // catch up to.  Without this, the flag stays set forever after a
+        // flash that drained to its current value, and would silently
+        // suppress the next real milestone.
+        var hasPending = latestCount !== null && latestCount !== lastCount;
+        afterFlashCatchUp = hasPending;
+        if (hasPending && latestState) resolveQueue(latestState);
         return;
       }
       if (animationStep % 2 === 0) body.classList.add('inverted');
@@ -583,8 +595,13 @@
 
       // Detect milestone before transitioning so we can display the
       // milestone value during the flash instead of the actual new count.
+      // Flashes only fire for increment actions, and never during a
+      // post-flash catch-up (crossings that happened while a flash was
+      // already playing are silently absorbed, not queued).
       var increased = preCount !== null && newCount > preCount;
-      var cycles = increased ? checkMilestone(state, preCount, newCount) : 0;
+      var flashEligible = isIncrementAction() && !afterFlashCatchUp;
+      var cycles = (increased && flashEligible)
+        ? checkMilestone(state, preCount, newCount) : 0;
       var hasMilestone = cycles > 0;
 
       // If a milestone was crossed, transition to the milestone value and
@@ -621,7 +638,14 @@
       }
     }
 
-    function applyState(state) {
+    function applyState(state, options) {
+      // `options.lastAction` is the server's tag for which mutation drove
+      // this broadcast ('increment', 'set', 'reset', 'patch', ...).  Flashes
+      // are gated on 'increment' in isIncrementAction().  Settings-only
+      // broadcasts (no count change) still update this, but they're harmless
+      // since no count-update path runs.
+      latestLastAction = options && 'lastAction' in options ? options.lastAction : null;
+
       // Layout updates always apply (even during animation).
       body.style.justifyContent = H_MAP[state.alignH] || 'center';
       body.style.alignItems = V_MAP[state.alignV] || 'center';

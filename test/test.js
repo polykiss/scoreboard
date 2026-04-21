@@ -302,27 +302,42 @@ test('layout settings update during animation lock', () => {
   assert.strictEqual(countEl.textContent, '10', 'count stays pinned');
 });
 
-test('second milestone during active animation fires after first ends', () => {
+test('milestones crossed during active flash are absorbed, not queued', () => {
   const { renderer, countEl, clock } = setupRenderer(true);
   renderer.applyState({ ...FLASH_BASE, count: 9 });
   renderer.applyState({ ...FLASH_BASE, count: 10 }); // fires small (750ms)
   assert.strictEqual(renderer._isLocked(), true);
 
-  // Partially through — another milestone value arrives (queued).
+  // Partially through — count advances past the next milestone.
   clock.advance(250);
   renderer.applyState({ ...FLASH_BASE, count: 20 });
   assert.strictEqual(renderer._isLocked(), true, 'first flash still running');
   assert.strictEqual(countEl.textContent, '10', 'still showing 10');
 
-  // First flash ends at 750ms; catch-up transition to 20 fires second flash.
+  // First flash ends at 750ms; catch-up to 20 happens silently with no
+  // second flash (the 10→20 crossing happened during the lock).
   clock.advance(500);
   assert.strictEqual(countEl.textContent, '20', 'caught up to 20');
-  assert.strictEqual(renderer._isLocked(), true, 'second flash for milestone 20');
-
-  // Second small flash: 750ms.
-  clock.advance(750);
-  assert.strictEqual(renderer._isLocked(), false, 'second flash done');
+  assert.strictEqual(renderer._isLocked(), false, 'no second flash queued');
   clock.advance(5000);
+  assert.strictEqual(renderer._isLocked(), false);
+});
+
+test('flash system resumes after absorbed catch-up — next milestone fires', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 9 });
+  renderer.applyState({ ...FLASH_BASE, count: 10 }); // fires small (750ms)
+  clock.advance(250);
+  renderer.applyState({ ...FLASH_BASE, count: 20 }); // queued during lock
+  clock.advance(500);                                 // flash ends, catch-up silent
+  assert.strictEqual(renderer._isLocked(), false);
+  assert.strictEqual(countEl.textContent, '20');
+
+  // Now a fresh increment to 30 should fire normally again.
+  renderer.applyState({ ...FLASH_BASE, count: 30 });
+  assert.strictEqual(renderer._isLocked(), true, 'milestone at 30 fires');
+  assert.strictEqual(countEl.textContent, '30');
+  clock.advance(750);
   assert.strictEqual(renderer._isLocked(), false);
 });
 
@@ -2229,7 +2244,7 @@ test('increment 1, small interval 10: count 9→10 still fires (backward compati
   assert.strictEqual(renderer._isLocked(), false);
 });
 
-test('increment 250, small interval 10: one flash per update, not 25 stacked', () => {
+test('increment 250, small interval 10: one flash fires, catch-up is silent', () => {
   const { renderer, document, countEl, clock } = setupRenderer(true);
   const state = { ...FLASH_BASE, bigFlashEnabled: false };
   renderer.applyState({ ...state, count: 5 });
@@ -2238,18 +2253,11 @@ test('increment 250, small interval 10: one flash per update, not 25 stacked', (
   // Display locks to the first small milestone crossed (10).
   assert.strictEqual(countEl.textContent, '10', 'locks to first milestone crossed');
 
-  // One small flash = 750ms. If 25 flashes stacked, it would take 18750ms.
-  // After the first flash, catch-up triggers one more (10→255 crosses 20),
-  // but at most one flash fires per count-update cycle.
+  // Flash plays for 750ms. After it ends, the catch-up jumps straight to 255
+  // silently — no queued/chained flashes for 20, 30, ..., 250.
   clock.advance(750);
-  // Catch-up fires another single flash for 10→255.
-  assert.strictEqual(renderer._isLocked(), true, 'catch-up flash fires');
-  assert.strictEqual(countEl.textContent, '20', 'catches up to next milestone');
-  clock.advance(750);
-  // Another catch-up: 20→255.
-  assert.strictEqual(renderer._isLocked(), true, 'still chaining');
-  // The chain continues, but the key point: each step is one flash,
-  // not 25 stacked from a single update.
+  assert.strictEqual(renderer._isLocked(), false, 'no catch-up flash');
+  assert.strictEqual(countEl.textContent, '255', 'catches up directly to latest');
 });
 
 test('decrement crossing a threshold does NOT fire a flash', () => {
@@ -2258,6 +2266,65 @@ test('decrement crossing a threshold does NOT fire a flash', () => {
   renderer.applyState({ ...FLASH_BASE, count: 8 }); // crosses 10 downward
   assert.strictEqual(renderer._isLocked(), false, 'no flash on decrement');
   assert.strictEqual(countEl.textContent, '8');
+});
+
+// ---------------------------------------------------------------------------
+// Flash eligibility — gated on lastAction === 'increment'
+
+test('set action does not fire milestone flash, even crossing many thresholds', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 0 }, { lastAction: 'increment' });
+  renderer.applyState({ ...FLASH_BASE, count: 999 }, { lastAction: 'set' });
+  assert.strictEqual(renderer._isLocked(), false, 'no flash on set');
+  assert.strictEqual(countEl.textContent, '999', 'count updates silently');
+});
+
+test('set action landing exactly on a milestone does not fire a flash', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 0 }, { lastAction: 'increment' });
+  renderer.applyState({ ...FLASH_BASE, count: 100 }, { lastAction: 'set' });
+  assert.strictEqual(renderer._isLocked(), false, 'no big flash on set to 100');
+  assert.strictEqual(countEl.textContent, '100');
+});
+
+test('reset action does not fire a flash', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 50 }, { lastAction: 'increment' });
+  renderer.applyState({ ...FLASH_BASE, count: 0 }, { lastAction: 'reset' });
+  assert.strictEqual(renderer._isLocked(), false);
+  assert.strictEqual(renderer._isPerTapRunning(), false);
+  assert.ok(!document.body.classList.contains('inverted'));
+});
+
+test('reset-to-user-defaults does not fire a flash even crossing milestones', () => {
+  const { renderer, clock } = setupRenderer(true);
+  renderer.applyState({ ...FLASH_BASE, count: 0 }, { lastAction: 'increment' });
+  renderer.applyState(
+    { ...FLASH_BASE, count: 500 },
+    { lastAction: 'reset-to-user-defaults' }
+  );
+  assert.strictEqual(renderer._isLocked(), false);
+});
+
+test('per-tap flash is skipped when action is set', () => {
+  const { renderer, document, clock } = setupRenderer(true);
+  renderer.applyState({ ...PER_TAP_BASE, count: 5 }, { lastAction: 'increment' });
+  renderer.applyState({ ...PER_TAP_BASE, count: 10 }, { lastAction: 'set' });
+  assert.strictEqual(renderer._isPerTapRunning(), false, 'per-tap skipped on set');
+  assert.ok(!document.body.classList.contains('inverted'));
+});
+
+test('increment action after set does fire a flash on next milestone', () => {
+  const { renderer, countEl, clock } = setupRenderer(true);
+  // Set from 0 to 99 — silent.
+  renderer.applyState({ ...FLASH_BASE, count: 0 }, { lastAction: 'increment' });
+  renderer.applyState({ ...FLASH_BASE, count: 99 }, { lastAction: 'set' });
+  assert.strictEqual(renderer._isLocked(), false);
+
+  // +1 to 100 — milestone fires (big flash at 100).
+  renderer.applyState({ ...FLASH_BASE, count: 100 }, { lastAction: 'increment' });
+  assert.strictEqual(renderer._isLocked(), true, 'big flash at 100');
+  assert.strictEqual(countEl.textContent, '100');
 });
 
 test('big trumps small when both thresholds crossed in same increment', () => {
