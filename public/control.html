@@ -317,6 +317,12 @@
       font-size: 12px;
       font-variant-numeric: tabular-nums;
     }
+    .field .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
 
     /* ---------- range slider ---------- */
 
@@ -740,6 +746,7 @@
     <div class="field">
       <label>Text</label>
       <input type="text" id="supertextValue" placeholder="e.g. lbs">
+      <div class="hint">Use {text} for superscript, e.g., FT{2}</div>
     </div>
 
     <div class="field">
@@ -759,7 +766,12 @@
 
     <div class="field">
       <label>Distance from count <span class="value" id="supertextGapValue"></span></label>
-      <input type="range" id="supertextGap" min="0" max="200" step="1">
+      <input type="range" id="supertextGap" min="-100" max="200" step="1">
+    </div>
+
+    <div class="field">
+      <label>Vertical offset <span class="value" id="supertextOffsetYValue"></span></label>
+      <input type="range" id="supertextOffsetY" min="-100" max="100" step="1">
     </div>
 
     <div class="group-heading">Layout</div>
@@ -968,6 +980,8 @@
     const supertextSpacingValue= document.getElementById('supertextSpacingValue');
     const supertextGapEl       = document.getElementById('supertextGap');
     const supertextGapValue    = document.getElementById('supertextGapValue');
+    const supertextOffsetYEl   = document.getElementById('supertextOffsetY');
+    const supertextOffsetYValue= document.getElementById('supertextOffsetYValue');
 
     let ws = null;
     let currentState = null;
@@ -989,7 +1003,8 @@
      transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl,
      incrementInput,
-     supertextValueEl, supertextFontEl, supertextSizeEl, supertextSpacingEl, supertextGapEl]
+     supertextValueEl, supertextFontEl, supertextSizeEl, supertextSpacingEl, supertextGapEl,
+     supertextOffsetYEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -1084,6 +1099,8 @@
       supertextSpacingValue.textContent = state.supertextSpacing + 'px';
       if (!interacting.has(supertextGapEl)) supertextGapEl.value = state.supertextGap;
       supertextGapValue.textContent = state.supertextGap + 'px';
+      if (!interacting.has(supertextOffsetYEl)) supertextOffsetYEl.value = state.supertextOffsetY;
+      supertextOffsetYValue.textContent = state.supertextOffsetY + 'px';
 
       const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
       if (hRadio) hRadio.checked = true;
@@ -1374,6 +1391,11 @@
       const v = parseInt(supertextGapEl.value, 10);
       supertextGapValue.textContent = v + 'px';
       patch({ supertextGap: v });
+    });
+    supertextOffsetYEl.addEventListener('input', () => {
+      const v = parseInt(supertextOffsetYEl.value, 10);
+      supertextOffsetYValue.textContent = v + 'px';
+      patch({ supertextOffsetY: v });
     });
 
     document.querySelectorAll('input[name="alignH"]').forEach(el =>

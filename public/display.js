@@ -66,6 +66,57 @@
       head.appendChild(style);
     }
 
+    // Parse supertext into normal / superscript segments.
+    // Curly braces wrap superscript content: "FT{2}" → [FT, sup(2)].
+    // Empty braces are dropped, unclosed braces are treated as literal.
+    function parseSupertext(text) {
+      var segments = [];
+      var i = 0;
+      while (i < text.length) {
+        var open = text.indexOf('{', i);
+        if (open === -1) {
+          segments.push({ sup: false, text: text.slice(i) });
+          break;
+        }
+        var close = text.indexOf('}', open + 1);
+        if (close === -1) {
+          // Unclosed brace — emit the rest as a literal segment.
+          segments.push({ sup: false, text: text.slice(i) });
+          break;
+        }
+        if (open > i) {
+          segments.push({ sup: false, text: text.slice(i, open) });
+        }
+        var supContent = text.slice(open + 1, close);
+        if (supContent.length > 0) {
+          segments.push({ sup: true, text: supContent });
+        }
+        i = close + 1;
+      }
+      return segments;
+    }
+
+    // Render supertext value as one or more spans inside supertextEl.
+    // Superscript spans render at 50% size and use vertical-align: super
+    // so they raise above the normal baseline. Color/glow inherit from
+    // the parent supertextEl, so no per-span styling is needed for those.
+    function renderSupertextValue(text, baseSize) {
+      supertextEl.innerHTML = '';
+      var segments = parseSupertext(text);
+      for (var i = 0; i < segments.length; i++) {
+        var s = segments[i];
+        if (!s.text) continue;
+        var span = document.createElement('span');
+        span.textContent = s.text;
+        if (s.sup) {
+          span.className = 'supertext-sup';
+          span.style.fontSize = Math.round(baseSize * 0.5) + 'px';
+          span.style.verticalAlign = 'super';
+        }
+        supertextEl.appendChild(span);
+      }
+    }
+
     function applySupertextFont(name) {
       if (!name || name === currentSupertextFontFamily) return;
       ensureFont(name);
@@ -731,7 +782,6 @@
         && String(state.supertextValue).length > 0;
       if (showSupertext) {
         supertextEl.style.display = '';
-        supertextEl.textContent = String(state.supertextValue);
         applySupertextFont(state.supertextFont || 'jd_led5');
         var stSize = Number(state.supertextSize);
         if (!isFinite(stSize) || stSize <= 0) stSize = 80;
@@ -740,10 +790,14 @@
         if (!isFinite(stSpacing)) stSpacing = 0;
         supertextEl.style.letterSpacing = stSpacing + 'px';
         var stGap = Number(state.supertextGap);
-        if (!isFinite(stGap) || stGap < 0) stGap = 0;
+        if (!isFinite(stGap)) stGap = 0;
         supertextEl.style.marginLeft = stGap + 'px';
+        var stOffsetY = Number(state.supertextOffsetY);
+        if (!isFinite(stOffsetY)) stOffsetY = 0;
+        supertextEl.style.transform = 'translateY(' + stOffsetY + 'px)';
         supertextEl.style.color = textColor;
         supertextEl.style.textShadow = state.glow ? computeGlowShadow(state) : 'none';
+        renderSupertextValue(String(state.supertextValue), stSize);
       } else {
         supertextEl.style.display = 'none';
       }

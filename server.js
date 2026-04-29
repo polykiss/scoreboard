@@ -51,6 +51,7 @@ const DEFAULT_STATE = {
   supertextSize: 80,
   supertextSpacing: 0,
   supertextGap: 20,
+  supertextOffsetY: 0,
   shuttingDown: false,
   rebooting: false,
   userDefaults: null,
@@ -92,6 +93,7 @@ const PATCH_KEYS = new Set([
   'supertextSize',
   'supertextSpacing',
   'supertextGap',
+  'supertextOffsetY',
 ]);
 
 function listFonts() {
@@ -276,7 +278,11 @@ function handleMessage(raw) {
         }
         if (msg.patch.supertextGap !== undefined) {
           var sg = Number(state.supertextGap);
-          state.supertextGap = Math.max(0, Math.min(200, isNaN(sg) ? 20 : sg));
+          state.supertextGap = Math.max(-100, Math.min(200, isNaN(sg) ? 20 : sg));
+        }
+        if (msg.patch.supertextOffsetY !== undefined) {
+          var so = Number(state.supertextOffsetY);
+          state.supertextOffsetY = Math.max(-100, Math.min(100, isNaN(so) ? 0 : so));
         }
         if (msg.patch.supertextValue !== undefined) {
           state.supertextValue = String(state.supertextValue == null ? '' : state.supertextValue);

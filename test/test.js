@@ -2589,21 +2589,195 @@ test('supertext numeric patches are clamped to range', () => {
   resetState();
   handleMessage(JSON.stringify({
     type: 'patch',
-    patch: { supertextSize: 9999, supertextSpacing: 999, supertextGap: -50 },
+    patch: { supertextSize: 9999, supertextSpacing: 999, supertextGap: 9999 },
   }));
   const s = getState();
   assert.strictEqual(s.supertextSize, 400, 'size clamps to max 400');
   assert.strictEqual(s.supertextSpacing, 50, 'spacing clamps to max 50');
-  assert.strictEqual(s.supertextGap, 0, 'gap clamps to min 0');
+  assert.strictEqual(s.supertextGap, 200, 'gap clamps to max 200');
 
   handleMessage(JSON.stringify({
     type: 'patch',
-    patch: { supertextSize: 5, supertextSpacing: -100 },
+    patch: { supertextSize: 5, supertextSpacing: -100, supertextGap: -9999 },
   }));
   const s2 = getState();
   assert.strictEqual(s2.supertextSize, 20, 'size clamps to min 20');
   assert.strictEqual(s2.supertextSpacing, -10, 'spacing clamps to min -10');
+  assert.strictEqual(s2.supertextGap, -100, 'gap clamps to min -100');
   resetState();
+});
+
+test('supertextGap accepts negative values within -100..200', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { supertextGap: -50 },
+  }));
+  assert.strictEqual(getState().supertextGap, -50, 'negative gap is preserved');
+  resetState();
+});
+
+test('supertextOffsetY field exists in DEFAULT_STATE with default 0', () => {
+  assert.strictEqual(DEFAULT_STATE.supertextOffsetY, 0);
+});
+
+test('supertextOffsetY is in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('supertextOffsetY'));
+});
+
+test('supertextOffsetY patch updates state and clamps to -100..100', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { supertextOffsetY: 25 },
+  }));
+  assert.strictEqual(getState().supertextOffsetY, 25);
+
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { supertextOffsetY: 999 },
+  }));
+  assert.strictEqual(getState().supertextOffsetY, 100, 'clamps to max 100');
+
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { supertextOffsetY: -999 },
+  }));
+  assert.strictEqual(getState().supertextOffsetY, -100, 'clamps to min -100');
+  resetState();
+});
+
+test('supertextOffsetY is applied as translateY on the supertext element', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextOffsetY: 30,
+  });
+  const sup = renderer._getSupertextEl();
+  assert.match(sup.style.transform, /translateY\(\s*30px\s*\)/);
+});
+
+test('supertextOffsetY updates immediately without count change', () => {
+  const { renderer } = setupRenderer(true);
+  const base = {
+    ...DEFAULT_STATE,
+    count: 7,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextOffsetY: 0,
+  };
+  renderer.applyState(base);
+  const sup = renderer._getSupertextEl();
+  renderer.applyState({ ...base, supertextOffsetY: -40 });
+  assert.match(sup.style.transform, /translateY\(\s*-40px\s*\)/);
+});
+
+test('supertext FT{2} renders FT normal + 2 superscript at half size', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'FT{2}',
+    supertextSize: 100,
+  });
+  const sup = renderer._getSupertextEl();
+  const spans = sup.querySelectorAll('span');
+  assert.strictEqual(spans.length, 2, 'two spans: normal + super');
+  assert.strictEqual(spans[0].textContent, 'FT');
+  assert.ok(!spans[0].classList.contains('supertext-sup'));
+  assert.strictEqual(spans[1].textContent, '2');
+  assert.ok(spans[1].classList.contains('supertext-sup'));
+  assert.strictEqual(spans[1].style.fontSize, '50px');
+  assert.strictEqual(spans[1].style.verticalAlign, 'super');
+});
+
+test('supertext plain text with no braces renders as a single span', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'POUNDS',
+  });
+  const sup = renderer._getSupertextEl();
+  const spans = sup.querySelectorAll('span');
+  assert.strictEqual(spans.length, 1);
+  assert.strictEqual(spans[0].textContent, 'POUNDS');
+  assert.ok(!spans[0].classList.contains('supertext-sup'));
+});
+
+test('supertext multiple superscript groups: FT{2}/S{2}', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'FT{2}/S{2}',
+    supertextSize: 80,
+  });
+  const sup = renderer._getSupertextEl();
+  const spans = sup.querySelectorAll('span');
+  assert.strictEqual(spans.length, 4);
+  assert.strictEqual(spans[0].textContent, 'FT');
+  assert.ok(!spans[0].classList.contains('supertext-sup'));
+  assert.strictEqual(spans[1].textContent, '2');
+  assert.ok(spans[1].classList.contains('supertext-sup'));
+  assert.strictEqual(spans[2].textContent, '/S');
+  assert.ok(!spans[2].classList.contains('supertext-sup'));
+  assert.strictEqual(spans[3].textContent, '2');
+  assert.ok(spans[3].classList.contains('supertext-sup'));
+});
+
+test('supertext empty braces FT{} render as just FT', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'FT{}',
+  });
+  const sup = renderer._getSupertextEl();
+  const spans = sup.querySelectorAll('span');
+  assert.strictEqual(spans.length, 1);
+  assert.strictEqual(spans[0].textContent, 'FT');
+  assert.ok(!spans[0].classList.contains('supertext-sup'));
+});
+
+test('supertext unclosed braces FT{2 render as literal text', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'FT{2',
+  });
+  const sup = renderer._getSupertextEl();
+  const spans = sup.querySelectorAll('span');
+  assert.strictEqual(spans.length, 1);
+  assert.strictEqual(spans[0].textContent, 'FT{2');
+  assert.ok(!spans[0].classList.contains('supertext-sup'));
+});
+
+test('supertext superscript inherits color and glow from parent supertext', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    countColor: '#00ff00',
+    glow: true,
+    glowDistance: 10,
+    glowIntensity: 90,
+    supertextEnabled: true,
+    supertextValue: 'FT{2}',
+  });
+  const sup = renderer._getSupertextEl();
+  // Parent carries color and textShadow; spans inherit via CSS.
+  assert.match(sup.style.color, /^rgb\(0,\s*255,\s*0\)$|^#00ff00$/i);
+  assert.match(sup.style.textShadow, /rgba\(0,\s*255,\s*0/);
+  // The super span should not override color or textShadow.
+  const supSpan = sup.querySelector('.supertext-sup');
+  assert.strictEqual(supSpan.style.color, '');
+  assert.strictEqual(supSpan.style.textShadow, '');
 });
 
 test('supertext renders to right of count when enabled with non-empty value', () => {
