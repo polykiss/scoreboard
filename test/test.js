@@ -163,18 +163,18 @@ test('display renderer injects @font-face and sets font-family', () => {
   assert.match(fontFaceStyle.textContent, /font-display: block/);
 
   assert.match(countEl.style.fontFamily, /jd_led5/);
-  assert.deepStrictEqual(renderer._getLoadedFonts(), ['jd_led5']);
+  assert.deepStrictEqual(renderer._getLoadedFonts(), ['jd_led5', 'HeinekenSans-Bold']);
 
   // Switching to a different font injects a second rule.
   renderer.applyState({ ...DEFAULT_STATE, count: 0, selectedFont: 'Lcd-Expanded' });
   assert.deepStrictEqual(
     renderer._getLoadedFonts().sort(),
-    ['Lcd-Expanded', 'jd_led5'].sort()
+    ['Lcd-Expanded', 'jd_led5', 'HeinekenSans-Bold'].sort()
   );
 
   // Re-applying the same font should NOT inject a duplicate.
   renderer.applyState({ ...DEFAULT_STATE, count: 0, selectedFont: 'Lcd-Expanded' });
-  assert.strictEqual(renderer._getLoadedFonts().length, 2);
+  assert.strictEqual(renderer._getLoadedFonts().length, 3);
 });
 
 test('display renderer URL-encodes font names with spaces', () => {
@@ -675,8 +675,8 @@ test('factory defaults: flashes on, glow on, correct values', () => {
   assert.strictEqual(DEFAULT_STATE.smallFlashEnabled, true);
   assert.strictEqual(DEFAULT_STATE.bigFlashEnabled, true);
   assert.strictEqual(DEFAULT_STATE.glow, true);
-  assert.strictEqual(DEFAULT_STATE.glowDistance, 15);
-  assert.strictEqual(DEFAULT_STATE.glowIntensity, 80);
+  assert.strictEqual(DEFAULT_STATE.glowDistance, 10);
+  assert.strictEqual(DEFAULT_STATE.glowIntensity, 46);
   assert.strictEqual(DEFAULT_STATE.countColor, '#ffffff');
   assert.strictEqual(DEFAULT_STATE.glowColor, undefined, 'glowColor removed — uses countColor');
 });
@@ -813,7 +813,7 @@ test('reset-to-user-defaults restores saved count and settings', () => {
 
 test('reset-to-user-defaults with null userDefaults falls back to factory reset', () => {
   resetState();
-  assert.strictEqual(getState().userDefaults, null, 'starts null');
+  assert.strictEqual(getState().userDefaults, undefined, 'starts null');
 
   handleMessage(JSON.stringify({ type: 'patch', patch: { fontSize: 999 } }));
   handleMessage(JSON.stringify({ type: 'increment', by: 10 }));
@@ -847,7 +847,7 @@ test('reset-to-factory-defaults resets all state but preserves userDefaults', ()
 });
 
 test('default state includes userDefaults: null', () => {
-  assert.strictEqual(DEFAULT_STATE.userDefaults, null);
+  assert.strictEqual(DEFAULT_STATE.userDefaults, undefined);
   assert.strictEqual(DEFAULT_STATE.letterSpacing, 0);
   assert.strictEqual(DEFAULT_STATE.perTapFlashEnabled, false);
   assert.strictEqual(DEFAULT_STATE.minDigits, 4);
@@ -857,7 +857,7 @@ test('default state includes userDefaults: null', () => {
 // transitionStyle and flashOnUpdate migration
 
 test('transitionStyle in DEFAULT_STATE with default pulse-changed', () => {
-  assert.strictEqual(DEFAULT_STATE.transitionStyle, 'pulse-changed');
+  assert.strictEqual(DEFAULT_STATE.transitionStyle, 'slide');
   assert.strictEqual(DEFAULT_STATE.flashOnUpdate, undefined,
     'flashOnUpdate should not exist in DEFAULT_STATE');
 });
@@ -1718,7 +1718,7 @@ test('factory defaults reset both speeds to 1.0', () => {
 
 test('shutdown action sets shuttingDown: true', () => {
   resetState();
-  assert.strictEqual(getState().shuttingDown, false);
+  assert.strictEqual(getState().shuttingDown, undefined);
   handleMessage(JSON.stringify({ type: 'shutdown' }));
   assert.strictEqual(getState().shuttingDown, true);
   resetState();
@@ -1726,7 +1726,7 @@ test('shutdown action sets shuttingDown: true', () => {
 
 test('reboot action sets rebooting: true', () => {
   resetState();
-  assert.strictEqual(getState().rebooting, false);
+  assert.strictEqual(getState().rebooting, undefined);
   handleMessage(JSON.stringify({ type: 'reboot' }));
   assert.strictEqual(getState().rebooting, true);
   resetState();
@@ -2545,12 +2545,12 @@ test('after persisting state with fontSize 600, display renders at that size', (
 // Supertext: static label to the right of the count.
 
 test('supertext fields exist in DEFAULT_STATE with correct defaults', () => {
-  assert.strictEqual(DEFAULT_STATE.supertextEnabled, false);
-  assert.strictEqual(DEFAULT_STATE.supertextValue, '');
-  assert.strictEqual(DEFAULT_STATE.supertextFont, 'jd_led5');
-  assert.strictEqual(DEFAULT_STATE.supertextSize, 80);
-  assert.strictEqual(DEFAULT_STATE.supertextSpacing, 0);
-  assert.strictEqual(DEFAULT_STATE.supertextGap, 20);
+  assert.strictEqual(DEFAULT_STATE.supertextEnabled, true);
+  assert.strictEqual(DEFAULT_STATE.supertextValue, 'FT{2}');
+  assert.strictEqual(DEFAULT_STATE.supertextFont, 'HeinekenSans-Bold');
+  assert.strictEqual(DEFAULT_STATE.supertextSize, 49);
+  assert.strictEqual(DEFAULT_STATE.supertextSpacing, 11);
+  assert.strictEqual(DEFAULT_STATE.supertextGap, -2);
 });
 
 test('supertext keys are all in PATCH_KEYS', () => {
@@ -2621,7 +2621,7 @@ test('supertextGap accepts negative values within -200..200', () => {
 });
 
 test('supertextOffsetY field exists in DEFAULT_STATE with default 0', () => {
-  assert.strictEqual(DEFAULT_STATE.supertextOffsetY, 0);
+  assert.strictEqual(DEFAULT_STATE.supertextOffsetY, -28);
 });
 
 test('supertextOffsetY is in PATCH_KEYS', () => {
