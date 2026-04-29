@@ -2603,16 +2603,20 @@ test('supertext numeric patches are clamped to range', () => {
   const s2 = getState();
   assert.strictEqual(s2.supertextSize, 20, 'size clamps to min 20');
   assert.strictEqual(s2.supertextSpacing, -10, 'spacing clamps to min -10');
-  assert.strictEqual(s2.supertextGap, -100, 'gap clamps to min -100');
+  assert.strictEqual(s2.supertextGap, -200, 'gap clamps to min -200');
   resetState();
 });
 
-test('supertextGap accepts negative values within -100..200', () => {
+test('supertextGap accepts negative values within -200..200', () => {
   resetState();
   handleMessage(JSON.stringify({
-    type: 'patch', patch: { supertextGap: -50 },
+    type: 'patch', patch: { supertextGap: -150 },
   }));
-  assert.strictEqual(getState().supertextGap, -50, 'negative gap is preserved');
+  assert.strictEqual(getState().supertextGap, -150, 'negative gap is preserved');
+  handleMessage(JSON.stringify({
+    type: 'patch', patch: { supertextGap: -200 },
+  }));
+  assert.strictEqual(getState().supertextGap, -200, '-200 is the new minimum');
   resetState();
 });
 
@@ -2983,4 +2987,69 @@ test('supertext settings round-trip through user defaults', () => {
   assert.strictEqual(s.supertextSpacing, 10);
   assert.strictEqual(s.supertextGap, 60);
   resetState();
+});
+
+test('count element has no padding, regardless of glow distance', () => {
+  // Glow padding on #count would grow its flex item box and shift the
+  // supertext sibling whenever glowDistance changed. The fix removes the
+  // padding entirely — text-shadow handles the halo with no layout cost.
+  const { renderer, countEl } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 5,
+    glow: true,
+    glowDistance: 5,
+  });
+  assert.strictEqual(countEl.style.padding, '0px',
+    'count must not gain padding from glow at small distance');
+
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 5,
+    glow: true,
+    glowDistance: 80,
+  });
+  assert.strictEqual(countEl.style.padding, '0px',
+    'count must not gain padding from glow at large distance');
+});
+
+test('changing glow distance does not shift the supertext element', () => {
+  const { renderer, countEl } = setupRenderer(true);
+  const base = {
+    ...DEFAULT_STATE,
+    count: 5,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextGap: 30,
+    glow: true,
+  };
+  renderer.applyState({ ...base, glowDistance: 10 });
+  const sup = renderer._getSupertextEl();
+  const padBefore = countEl.style.padding;
+  const marginBefore = sup.style.marginLeft;
+
+  renderer.applyState({ ...base, glowDistance: 90 });
+  // The count keeps zero padding and the supertext keeps its configured
+  // gap — so flex layout positions supertext identically before and after
+  // a glow change.
+  assert.strictEqual(countEl.style.padding, padBefore);
+  assert.strictEqual(sup.style.marginLeft, marginBefore);
+});
+
+test('controller section order: Supertext sits between Digit rendering and Preset', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'control.html'), 'utf8');
+  const headings = ['Increment', 'Typography', 'Layout', 'Transitions',
+    'Glow', 'Flashing', 'Digit rendering', 'Supertext'];
+  let cursor = 0;
+  for (const h of headings) {
+    const idx = html.indexOf(`>${h}</div>`, cursor);
+    assert.ok(idx > cursor, `expected "${h}" group heading after position ${cursor}`);
+    cursor = idx;
+  }
+  // Preset section heading must come after Supertext.
+  const supIdx = html.indexOf('>Supertext</div>');
+  const presetIdx = html.indexOf('>Preset</div>');
+  assert.ok(presetIdx > supIdx,
+    'Preset section must follow Supertext in the document order');
 });

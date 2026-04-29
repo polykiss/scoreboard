@@ -734,14 +734,10 @@
       body.style.setProperty('--text-color', textColor);
       countEl.style.color = textColor;
 
-      // Pad #count by the glow's visual extent so the glow halo around
-      // edge characters is never clipped by the viewport overflow:hidden.
-      if (state.glow) {
-        var glowPad = Math.ceil((Number(state.glowDistance) || 0) * 2);
-        countEl.style.padding = glowPad + 'px';
-      } else {
-        countEl.style.padding = '0';
-      }
+      // Glow halo extends visually via text-shadow only — no padding on
+      // #count. Padding here would grow the count's flex item box and
+      // shift the supertext sibling whenever glowDistance changes.
+      countEl.style.padding = '0';
 
       applyFont(state.selectedFont);
       // Letter spacing is applied as margin-left on each slot in

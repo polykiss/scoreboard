@@ -278,7 +278,7 @@ function handleMessage(raw) {
         }
         if (msg.patch.supertextGap !== undefined) {
           var sg = Number(state.supertextGap);
-          state.supertextGap = Math.max(-100, Math.min(200, isNaN(sg) ? 20 : sg));
+          state.supertextGap = Math.max(-200, Math.min(200, isNaN(sg) ? 20 : sg));
         }
         if (msg.patch.supertextOffsetY !== undefined) {
           var so = Number(state.supertextOffsetY);

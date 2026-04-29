@@ -736,44 +736,6 @@
       </div>
     </div>
 
-    <div class="group-heading">Supertext</div>
-
-    <div class="field toggle-row">
-      <label>Enable supertext</label>
-      <input type="checkbox" id="supertextEnabled">
-    </div>
-
-    <div class="field">
-      <label>Text</label>
-      <input type="text" id="supertextValue" placeholder="e.g. lbs">
-      <div class="hint">Use {text} for superscript, e.g., FT{2}</div>
-    </div>
-
-    <div class="field">
-      <label>Font</label>
-      <select id="supertextFont"></select>
-    </div>
-
-    <div class="field">
-      <label>Size <span class="value" id="supertextSizeValue"></span></label>
-      <input type="range" id="supertextSize" min="20" max="400" step="1">
-    </div>
-
-    <div class="field">
-      <label>Letter spacing <span class="value" id="supertextSpacingValue"></span></label>
-      <input type="range" id="supertextSpacing" min="-10" max="50" step="1">
-    </div>
-
-    <div class="field">
-      <label>Distance from count <span class="value" id="supertextGapValue"></span></label>
-      <input type="range" id="supertextGap" min="-100" max="200" step="1">
-    </div>
-
-    <div class="field">
-      <label>Vertical offset <span class="value" id="supertextOffsetYValue"></span></label>
-      <input type="range" id="supertextOffsetY" min="-100" max="100" step="1">
-    </div>
-
     <div class="group-heading">Layout</div>
 
     <div class="field">
@@ -847,23 +809,6 @@
       <input type="range" id="glowIntensity" min="0" max="100">
     </div>
 
-    <div class="group-heading">Digit rendering</div>
-
-    <div class="field">
-      <label>Min digits <span class="value" id="minDigitsValue"></span></label>
-      <input type="number" id="minDigits" inputmode="numeric" pattern="[0-9]*" min="0" max="10" step="1">
-    </div>
-
-    <div class="field">
-      <label>Leading zero opacity <span class="value" id="fadeLeadingZerosValue"></span></label>
-      <input type="range" id="fadeLeadingZeros" min="0" max="100" step="1">
-    </div>
-
-    <div class="field toggle-row">
-      <label>Use commas</label>
-      <input type="checkbox" id="useCommas">
-    </div>
-
     <div class="group-heading">Flashing</div>
 
     <div class="field">
@@ -894,6 +839,61 @@
     <div class="field">
       <label>Big interval</label>
       <input type="number" id="bigFlashInterval" min="1" step="1">
+    </div>
+
+    <div class="group-heading">Digit rendering</div>
+
+    <div class="field">
+      <label>Min digits <span class="value" id="minDigitsValue"></span></label>
+      <input type="number" id="minDigits" inputmode="numeric" pattern="[0-9]*" min="0" max="10" step="1">
+    </div>
+
+    <div class="field">
+      <label>Leading zero opacity <span class="value" id="fadeLeadingZerosValue"></span></label>
+      <input type="range" id="fadeLeadingZeros" min="0" max="100" step="1">
+    </div>
+
+    <div class="field toggle-row">
+      <label>Use commas</label>
+      <input type="checkbox" id="useCommas">
+    </div>
+
+    <div class="group-heading">Supertext</div>
+
+    <div class="field toggle-row">
+      <label>Enable supertext</label>
+      <input type="checkbox" id="supertextEnabled">
+    </div>
+
+    <div class="field">
+      <label>Text</label>
+      <input type="text" id="supertextValue" placeholder="e.g. lbs">
+      <div class="hint">Use {text} for superscript, e.g., FT{2}</div>
+    </div>
+
+    <div class="field">
+      <label>Font</label>
+      <select id="supertextFont"></select>
+    </div>
+
+    <div class="field">
+      <label>Size <span class="value" id="supertextSizeValue"></span></label>
+      <input type="range" id="supertextSize" min="20" max="400" step="1">
+    </div>
+
+    <div class="field">
+      <label>Letter spacing <span class="value" id="supertextSpacingValue"></span></label>
+      <input type="range" id="supertextSpacing" min="-10" max="50" step="1">
+    </div>
+
+    <div class="field">
+      <label>Distance from count <span class="value" id="supertextGapValue"></span></label>
+      <input type="range" id="supertextGap" min="-200" max="200" step="1">
+    </div>
+
+    <div class="field">
+      <label>Vertical offset <span class="value" id="supertextOffsetYValue"></span></label>
+      <input type="range" id="supertextOffsetY" min="-100" max="100" step="1">
     </div>
   </details>
 
