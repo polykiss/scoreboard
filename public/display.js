@@ -23,6 +23,19 @@
 
     const loadedFonts = new Set();
     let currentFontFamily = null;
+    let currentSupertextFontFamily = null;
+
+    // Auto-create the supertext element as a sibling of countEl inside
+    // offsetEl. The count and supertext share a flex row so the supertext
+    // sits to the right of the count and top-aligns with the digits.
+    offsetEl.style.display = 'flex';
+    offsetEl.style.alignItems = 'flex-start';
+    const supertextEl = document.createElement('span');
+    supertextEl.id = 'supertext';
+    supertextEl.style.display = 'none';
+    supertextEl.style.lineHeight = '1';
+    supertextEl.style.whiteSpace = 'nowrap';
+    offsetEl.appendChild(supertextEl);
 
     // State tracking
     let lastCount = null;       // Count before current transition (for delta)
@@ -51,6 +64,14 @@
         ` src: url('${url}') format('truetype');` +
         ` font-display: block; }`;
       head.appendChild(style);
+    }
+
+    function applySupertextFont(name) {
+      if (!name || name === currentSupertextFontFamily) return;
+      ensureFont(name);
+      const safeName = String(name).replace(/'/g, "\\'");
+      supertextEl.style.fontFamily = `'${safeName}', monospace`;
+      currentSupertextFontFamily = name;
     }
 
     function applyFont(name) {
@@ -702,6 +723,31 @@
         countEl.style.textShadow = 'none';
       }
 
+      // Supertext: static label to the right of the count. Inherits color
+      // and glow from the count; has its own font / size / spacing. Hidden
+      // entirely when disabled or empty so it takes no layout space.
+      var showSupertext = !!state.supertextEnabled
+        && state.supertextValue != null
+        && String(state.supertextValue).length > 0;
+      if (showSupertext) {
+        supertextEl.style.display = '';
+        supertextEl.textContent = String(state.supertextValue);
+        applySupertextFont(state.supertextFont || 'jd_led5');
+        var stSize = Number(state.supertextSize);
+        if (!isFinite(stSize) || stSize <= 0) stSize = 80;
+        supertextEl.style.fontSize = stSize + 'px';
+        var stSpacing = Number(state.supertextSpacing);
+        if (!isFinite(stSpacing)) stSpacing = 0;
+        supertextEl.style.letterSpacing = stSpacing + 'px';
+        var stGap = Number(state.supertextGap);
+        if (!isFinite(stGap) || stGap < 0) stGap = 0;
+        supertextEl.style.marginLeft = stGap + 'px';
+        supertextEl.style.color = textColor;
+        supertextEl.style.textShadow = state.glow ? computeGlowShadow(state) : 'none';
+      } else {
+        supertextEl.style.display = 'none';
+      }
+
       // Power state: replace count with shutdown/reboot message.
       // Status messages reuse the scoreboard's selected font and vertical
       // alignment so they share the count's visual slot, but render at
@@ -712,6 +758,7 @@
         transitionActive = false;
         animationLocked = false;
         perTapRunning = false;
+        supertextEl.style.display = 'none';
         body.style.justifyContent = 'center';
         body.style.alignItems = V_MAP[state.alignV] || 'center';
         offsetEl.style.transform =
@@ -786,6 +833,8 @@
       // test hooks
       _getLoadedFonts: function () { return Array.from(loadedFonts); },
       _getCurrentFontFamily: function () { return currentFontFamily; },
+      _getCurrentSupertextFontFamily: function () { return currentSupertextFontFamily; },
+      _getSupertextEl: function () { return supertextEl; },
       _isLocked: function () { return animationLocked; },
       _getLastCount: function () { return lastCount; },
       _getLatestCount: function () { return latestCount; },

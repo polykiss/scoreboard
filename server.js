@@ -45,6 +45,12 @@ const DEFAULT_STATE = {
   bgColor: '#000000',
   transitionSpeed: 1.0,
   flashSpeed: 1.0,
+  supertextEnabled: false,
+  supertextValue: '',
+  supertextFont: 'jd_led5',
+  supertextSize: 80,
+  supertextSpacing: 0,
+  supertextGap: 20,
   shuttingDown: false,
   rebooting: false,
   userDefaults: null,
@@ -80,6 +86,12 @@ const PATCH_KEYS = new Set([
   'bgColor',
   'transitionSpeed',
   'flashSpeed',
+  'supertextEnabled',
+  'supertextValue',
+  'supertextFont',
+  'supertextSize',
+  'supertextSpacing',
+  'supertextGap',
 ]);
 
 function listFonts() {
@@ -253,6 +265,21 @@ function handleMessage(raw) {
         }
         if (msg.patch.increment !== undefined) {
           state.increment = Math.max(1, Math.trunc(Number(state.increment) || 1));
+        }
+        if (msg.patch.supertextSize !== undefined) {
+          var ss = Number(state.supertextSize);
+          state.supertextSize = Math.max(20, Math.min(400, isNaN(ss) ? 80 : ss));
+        }
+        if (msg.patch.supertextSpacing !== undefined) {
+          var sp = Number(state.supertextSpacing);
+          state.supertextSpacing = Math.max(-10, Math.min(50, isNaN(sp) ? 0 : sp));
+        }
+        if (msg.patch.supertextGap !== undefined) {
+          var sg = Number(state.supertextGap);
+          state.supertextGap = Math.max(0, Math.min(200, isNaN(sg) ? 20 : sg));
+        }
+        if (msg.patch.supertextValue !== undefined) {
+          state.supertextValue = String(state.supertextValue == null ? '' : state.supertextValue);
         }
       }
       break;

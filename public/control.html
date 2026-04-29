@@ -503,7 +503,8 @@
     /* ---------- select & number ---------- */
 
     select,
-    .field input[type="number"] {
+    .field input[type="number"],
+    .field input[type="text"] {
       width: 100%;
       font: inherit;
       font-size: 15px;
@@ -518,7 +519,8 @@
       transition: border-color 150ms ease;
     }
     select:focus,
-    .field input[type="number"]:focus {
+    .field input[type="number"]:focus,
+    .field input[type="text"]:focus {
       outline: none;
       border-color: var(--border-strong);
     }
@@ -728,6 +730,38 @@
       </div>
     </div>
 
+    <div class="group-heading">Supertext</div>
+
+    <div class="field toggle-row">
+      <label>Enable supertext</label>
+      <input type="checkbox" id="supertextEnabled">
+    </div>
+
+    <div class="field">
+      <label>Text</label>
+      <input type="text" id="supertextValue" placeholder="e.g. lbs">
+    </div>
+
+    <div class="field">
+      <label>Font</label>
+      <select id="supertextFont"></select>
+    </div>
+
+    <div class="field">
+      <label>Size <span class="value" id="supertextSizeValue"></span></label>
+      <input type="range" id="supertextSize" min="20" max="400" step="1">
+    </div>
+
+    <div class="field">
+      <label>Letter spacing <span class="value" id="supertextSpacingValue"></span></label>
+      <input type="range" id="supertextSpacing" min="-10" max="50" step="1">
+    </div>
+
+    <div class="field">
+      <label>Distance from count <span class="value" id="supertextGapValue"></span></label>
+      <input type="range" id="supertextGap" min="0" max="200" step="1">
+    </div>
+
     <div class="group-heading">Layout</div>
 
     <div class="field">
@@ -925,6 +959,15 @@
     const incPlusBtn           = document.getElementById('incPlus');
     const incDisplay           = document.getElementById('incDisplay');
     const incrementInput       = document.getElementById('incrementInput');
+    const supertextEnabledEl   = document.getElementById('supertextEnabled');
+    const supertextValueEl     = document.getElementById('supertextValue');
+    const supertextFontEl      = document.getElementById('supertextFont');
+    const supertextSizeEl      = document.getElementById('supertextSize');
+    const supertextSizeValue   = document.getElementById('supertextSizeValue');
+    const supertextSpacingEl   = document.getElementById('supertextSpacing');
+    const supertextSpacingValue= document.getElementById('supertextSpacingValue');
+    const supertextGapEl       = document.getElementById('supertextGap');
+    const supertextGapValue    = document.getElementById('supertextGapValue');
 
     let ws = null;
     let currentState = null;
@@ -945,7 +988,8 @@
      countColorEl, countColorHexEl, bgColorEl, bgColorHexEl, setInput, fontSelectEl,
      transitionStyleEl, transitionSpeedEl, flashSpeedEl,
      minDigitsEl, fadeLeadingZerosEl, smallFlashIntervalEl, bigFlashIntervalEl,
-     incrementInput]
+     incrementInput,
+     supertextValueEl, supertextFontEl, supertextSizeEl, supertextSpacingEl, supertextGapEl]
       .forEach(trackInteraction);
 
     function applyPresetBounds(preset) {
@@ -1026,6 +1070,20 @@
       incDisplay.textContent = inc;
       if (!interacting.has(incrementInput)) incrementInput.value = inc;
       incMinusBtn.disabled = inc <= 1;
+
+      supertextEnabledEl.checked = !!state.supertextEnabled;
+      if (!interacting.has(supertextValueEl)) supertextValueEl.value = state.supertextValue || '';
+      if (!interacting.has(supertextFontEl) && state.supertextFont) {
+        const hasSt = Array.from(supertextFontEl.options)
+          .some((o) => o.value === state.supertextFont);
+        if (hasSt) supertextFontEl.value = state.supertextFont;
+      }
+      if (!interacting.has(supertextSizeEl)) supertextSizeEl.value = state.supertextSize;
+      supertextSizeValue.textContent = state.supertextSize + 'px';
+      if (!interacting.has(supertextSpacingEl)) supertextSpacingEl.value = state.supertextSpacing;
+      supertextSpacingValue.textContent = state.supertextSpacing + 'px';
+      if (!interacting.has(supertextGapEl)) supertextGapEl.value = state.supertextGap;
+      supertextGapValue.textContent = state.supertextGap + 'px';
 
       const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
       if (hRadio) hRadio.checked = true;
@@ -1296,6 +1354,28 @@
       patch({ glowIntensity: v });
     });
 
+    supertextEnabledEl.addEventListener('change',
+      () => patch({ supertextEnabled: supertextEnabledEl.checked }));
+    supertextValueEl.addEventListener('input',
+      () => patch({ supertextValue: supertextValueEl.value }));
+    supertextFontEl.addEventListener('change',
+      () => patch({ supertextFont: supertextFontEl.value }));
+    supertextSizeEl.addEventListener('input', () => {
+      const v = parseInt(supertextSizeEl.value, 10);
+      supertextSizeValue.textContent = v + 'px';
+      patch({ supertextSize: v });
+    });
+    supertextSpacingEl.addEventListener('input', () => {
+      const v = parseInt(supertextSpacingEl.value, 10);
+      supertextSpacingValue.textContent = v + 'px';
+      patch({ supertextSpacing: v });
+    });
+    supertextGapEl.addEventListener('input', () => {
+      const v = parseInt(supertextGapEl.value, 10);
+      supertextGapValue.textContent = v + 'px';
+      patch({ supertextGap: v });
+    });
+
     document.querySelectorAll('input[name="alignH"]').forEach(el =>
       el.addEventListener('change', () => el.checked && patch({ alignH: el.value }))
     );
@@ -1323,16 +1403,26 @@
       .then((r) => r.json())
       .then(({ fonts }) => {
         fontSelectEl.innerHTML = '';
+        supertextFontEl.innerHTML = '';
         for (const name of fonts) {
           const opt = document.createElement('option');
           opt.value = name;
           opt.textContent = name;
           fontSelectEl.appendChild(opt);
+          const opt2 = document.createElement('option');
+          opt2.value = name;
+          opt2.textContent = name;
+          supertextFontEl.appendChild(opt2);
         }
         if (currentState && currentState.selectedFont) {
           const hasOption = Array.from(fontSelectEl.options)
             .some((o) => o.value === currentState.selectedFont);
           if (hasOption) fontSelectEl.value = currentState.selectedFont;
+        }
+        if (currentState && currentState.supertextFont) {
+          const hasSt = Array.from(supertextFontEl.options)
+            .some((o) => o.value === currentState.supertextFont);
+          if (hasSt) supertextFontEl.value = currentState.supertextFont;
         }
       })
       .catch(() => {});

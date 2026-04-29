@@ -2085,7 +2085,7 @@ test('.inverted CSS rule uses custom properties for swap, not hardcoded colors',
     path.join(__dirname, '..', 'public', 'display.html'), 'utf8');
   assert.match(html, /body\.inverted\s*\{[^}]*var\(--text-color/,
     'body.inverted background should use var(--text-color)');
-  assert.match(html, /body\.inverted\s+#count\s*\{[^}]*var\(--bg-color/,
+  assert.match(html, /body\.inverted\s+#count[^{]*\{[^}]*var\(--bg-color/,
     'body.inverted #count color should use var(--bg-color)');
 });
 
@@ -2539,4 +2539,274 @@ test('after persisting state with fontSize 600, display renders at that size', (
   renderer.applyState({ ...DEFAULT_STATE, count: 42, fontSize: 600 });
   assert.strictEqual(countEl.style.fontSize, '600px',
     'fontSize should be applied from state');
+});
+
+// ---------------------------------------------------------------------------
+// Supertext: static label to the right of the count.
+
+test('supertext fields exist in DEFAULT_STATE with correct defaults', () => {
+  assert.strictEqual(DEFAULT_STATE.supertextEnabled, false);
+  assert.strictEqual(DEFAULT_STATE.supertextValue, '');
+  assert.strictEqual(DEFAULT_STATE.supertextFont, 'jd_led5');
+  assert.strictEqual(DEFAULT_STATE.supertextSize, 80);
+  assert.strictEqual(DEFAULT_STATE.supertextSpacing, 0);
+  assert.strictEqual(DEFAULT_STATE.supertextGap, 20);
+});
+
+test('supertext keys are all in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('supertextEnabled'));
+  assert.ok(PATCH_KEYS.has('supertextValue'));
+  assert.ok(PATCH_KEYS.has('supertextFont'));
+  assert.ok(PATCH_KEYS.has('supertextSize'));
+  assert.ok(PATCH_KEYS.has('supertextSpacing'));
+  assert.ok(PATCH_KEYS.has('supertextGap'));
+});
+
+test('supertext patch updates state', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: {
+      supertextEnabled: true,
+      supertextValue: 'lbs',
+      supertextFont: 'jd_led5',
+      supertextSize: 120,
+      supertextSpacing: 5,
+      supertextGap: 40,
+    },
+  }));
+  const s = getState();
+  assert.strictEqual(s.supertextEnabled, true);
+  assert.strictEqual(s.supertextValue, 'lbs');
+  assert.strictEqual(s.supertextFont, 'jd_led5');
+  assert.strictEqual(s.supertextSize, 120);
+  assert.strictEqual(s.supertextSpacing, 5);
+  assert.strictEqual(s.supertextGap, 40);
+  resetState();
+});
+
+test('supertext numeric patches are clamped to range', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: { supertextSize: 9999, supertextSpacing: 999, supertextGap: -50 },
+  }));
+  const s = getState();
+  assert.strictEqual(s.supertextSize, 400, 'size clamps to max 400');
+  assert.strictEqual(s.supertextSpacing, 50, 'spacing clamps to max 50');
+  assert.strictEqual(s.supertextGap, 0, 'gap clamps to min 0');
+
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: { supertextSize: 5, supertextSpacing: -100 },
+  }));
+  const s2 = getState();
+  assert.strictEqual(s2.supertextSize, 20, 'size clamps to min 20');
+  assert.strictEqual(s2.supertextSpacing, -10, 'spacing clamps to min -10');
+  resetState();
+});
+
+test('supertext renders to right of count when enabled with non-empty value', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 5,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+  });
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.textContent, 'lbs');
+  assert.notStrictEqual(sup.style.display, 'none',
+    'supertext should be visible when enabled with non-empty value');
+});
+
+test('supertext top-aligns with count via flex container', () => {
+  const { renderer, offsetEl } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 5,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+  });
+  assert.strictEqual(offsetEl.style.alignItems, 'flex-start',
+    'flex container holding count + supertext must use align-items: flex-start');
+  // The supertext is the next sibling of the countEl inside offsetEl.
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.parentElement, offsetEl,
+    'supertext sits inside the same flex container as the count');
+});
+
+test('supertext font is independent of the count font', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    selectedFont: 'jd_led5',
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextFont: 'Lcd-Expanded',
+  });
+  assert.strictEqual(renderer._getCurrentFontFamily(), 'jd_led5');
+  assert.strictEqual(renderer._getCurrentSupertextFontFamily(), 'Lcd-Expanded');
+  // Both fonts are loaded via @font-face injection.
+  const loaded = renderer._getLoadedFonts().sort();
+  assert.deepStrictEqual(loaded, ['Lcd-Expanded', 'jd_led5'].sort());
+});
+
+test('changing supertextSize updates immediately without count change', () => {
+  const { renderer } = setupRenderer(true);
+  const base = {
+    ...DEFAULT_STATE,
+    count: 7,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextSize: 80,
+  };
+  renderer.applyState(base);
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.style.fontSize, '80px');
+
+  renderer.applyState({ ...base, supertextSize: 200 });
+  assert.strictEqual(sup.style.fontSize, '200px',
+    'supertext size updates immediately even without a count change');
+});
+
+test('supertextGap controls horizontal distance from count', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextGap: 75,
+  });
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.style.marginLeft, '75px');
+});
+
+test('supertext inherits countColor and glow', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    countColor: '#ff0000',
+    glow: true,
+    glowDistance: 12,
+    glowIntensity: 80,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+  });
+  const sup = renderer._getSupertextEl();
+  // jsdom normalizes to rgb()
+  assert.match(sup.style.color, /^rgb\(255,\s*0,\s*0\)$|^#ff0000$/i,
+    'supertext color should match countColor');
+  assert.match(sup.style.textShadow, /rgba\(255,\s*0,\s*0/,
+    'supertext glow should use the count color');
+  assert.match(sup.style.textShadow, /12px/,
+    'supertext glow should use the count glowDistance');
+});
+
+test('supertext glow off when count glow is off', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    glow: false,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+  });
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.style.textShadow, 'none');
+});
+
+test('supertext is hidden and takes no layout space when disabled', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: false,
+    supertextValue: 'lbs',
+  });
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.style.display, 'none',
+    'disabled supertext is display:none so it consumes no layout space');
+});
+
+test('supertext is hidden when value is empty even if enabled', () => {
+  const { renderer } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: '',
+  });
+  const sup = renderer._getSupertextEl();
+  assert.strictEqual(sup.style.display, 'none');
+});
+
+test('supertext does not animate during count transitions', () => {
+  const { renderer } = setupRenderer(true);
+  const base = {
+    ...DEFAULT_STATE,
+    transitionStyle: 'pulse-changed',
+    minDigits: 0,
+    smallFlashEnabled: false,
+    bigFlashEnabled: false,
+    perTapFlashEnabled: false,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+  };
+  renderer.applyState({ ...base, count: 5 });
+  const sup = renderer._getSupertextEl();
+  renderer.applyState({ ...base, count: 6 });
+  // No animation classes ever land on supertext.
+  assert.ok(!sup.classList.contains('pulse'));
+  assert.ok(!sup.classList.contains('flash'));
+  assert.ok(!sup.classList.contains('digit-fade-in'));
+  assert.ok(!sup.classList.contains('slide-in'));
+  // Slot architecture is also absent — supertext is plain text.
+  assert.strictEqual(sup.querySelectorAll('.digit').length, 0);
+});
+
+test('inverted style rule covers supertext', () => {
+  // The CSS rule must invert supertext color along with the count so the
+  // milestone flash inversion includes both elements.
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'public', 'display.html'), 'utf8');
+  assert.match(html, /body\.inverted\s+#supertext[^{]*\{[^}]*var\(--bg-color/,
+    'body.inverted #supertext color should use var(--bg-color)');
+});
+
+test('supertext settings round-trip through user defaults', () => {
+  resetState();
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: {
+      supertextEnabled: true,
+      supertextValue: 'POUNDS',
+      supertextSize: 150,
+      supertextSpacing: 10,
+      supertextGap: 60,
+    },
+  }));
+  handleMessage(JSON.stringify({ type: 'save-user-defaults' }));
+  // Mutate state away from the saved values.
+  handleMessage(JSON.stringify({
+    type: 'patch',
+    patch: {
+      supertextEnabled: false,
+      supertextValue: 'kg',
+      supertextSize: 50,
+      supertextSpacing: 0,
+      supertextGap: 10,
+    },
+  }));
+  handleMessage(JSON.stringify({ type: 'reset-to-user-defaults' }));
+  const s = getState();
+  assert.strictEqual(s.supertextEnabled, true);
+  assert.strictEqual(s.supertextValue, 'POUNDS');
+  assert.strictEqual(s.supertextSize, 150);
+  assert.strictEqual(s.supertextSpacing, 10);
+  assert.strictEqual(s.supertextGap, 60);
+  resetState();
 });
