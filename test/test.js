@@ -918,12 +918,16 @@ test('flashOnUpdate inside userDefaults is also migrated', () => {
 // ---------------------------------------------------------------------------
 // Letter spacing range validation
 
-test('letter spacing range accepts -20 and +100', () => {
+test('letter spacing range accepts -100 and +100', () => {
   resetState();
-  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -20 } }));
-  assert.strictEqual(getState().letterSpacing, -20);
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -100 } }));
+  assert.strictEqual(getState().letterSpacing, -100);
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 100 } }));
   assert.strictEqual(getState().letterSpacing, 100);
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -999 } }));
+  assert.strictEqual(getState().letterSpacing, -100, 'clamps to min -100');
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 999 } }));
+  assert.strictEqual(getState().letterSpacing, 100, 'clamps to max 100');
   resetState();
 });
 
@@ -1619,8 +1623,8 @@ test('all digit slots have explicit width (required for absolute children)', () 
 
 test('letter spacing range clamps values outside bounds', () => {
   resetState();
-  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -50 } }));
-  assert.strictEqual(getState().letterSpacing, -20, 'clamped to -20');
+  handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: -150 } }));
+  assert.strictEqual(getState().letterSpacing, -100, 'clamped to -100');
   handleMessage(JSON.stringify({ type: 'patch', patch: { letterSpacing: 200 } }));
   assert.strictEqual(getState().letterSpacing, 100, 'clamped to 100');
   resetState();

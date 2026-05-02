@@ -253,7 +253,7 @@ function handleMessage(raw) {
         }
         // Clamp letterSpacing to valid range.
         if (msg.patch.letterSpacing !== undefined) {
-          state.letterSpacing = Math.max(-20, Math.min(100, Number(state.letterSpacing) || 0));
+          state.letterSpacing = Math.max(-100, Math.min(100, Number(state.letterSpacing) || 0));
         }
         // Clamp speed multipliers to 0.25–3.0.
         if (msg.patch.transitionSpeed !== undefined) {
