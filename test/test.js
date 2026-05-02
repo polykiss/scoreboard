@@ -2628,7 +2628,7 @@ test('supertextOffsetY is in PATCH_KEYS', () => {
   assert.ok(PATCH_KEYS.has('supertextOffsetY'));
 });
 
-test('supertextOffsetY patch updates state and clamps to -100..100', () => {
+test('supertextOffsetY patch updates state and clamps to -200..200', () => {
   resetState();
   handleMessage(JSON.stringify({
     type: 'patch', patch: { supertextOffsetY: 25 },
@@ -2638,12 +2638,12 @@ test('supertextOffsetY patch updates state and clamps to -100..100', () => {
   handleMessage(JSON.stringify({
     type: 'patch', patch: { supertextOffsetY: 999 },
   }));
-  assert.strictEqual(getState().supertextOffsetY, 100, 'clamps to max 100');
+  assert.strictEqual(getState().supertextOffsetY, 200, 'clamps to max 200');
 
   handleMessage(JSON.stringify({
     type: 'patch', patch: { supertextOffsetY: -999 },
   }));
-  assert.strictEqual(getState().supertextOffsetY, -100, 'clamps to min -100');
+  assert.strictEqual(getState().supertextOffsetY, -200, 'clamps to min -200');
   resetState();
 });
 

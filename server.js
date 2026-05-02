@@ -281,7 +281,7 @@ function handleMessage(raw) {
         }
         if (msg.patch.supertextOffsetY !== undefined) {
           var so = Number(state.supertextOffsetY);
-          state.supertextOffsetY = Math.max(-100, Math.min(100, isNaN(so) ? 0 : so));
+          state.supertextOffsetY = Math.max(-200, Math.min(200, isNaN(so) ? 0 : so));
         }
         if (msg.patch.supertextValue !== undefined) {
           state.supertextValue = String(state.supertextValue == null ? '' : state.supertextValue);
