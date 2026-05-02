@@ -27,7 +27,8 @@
 
     // Auto-create the supertext element as a sibling of countEl inside
     // offsetEl. The count and supertext share a flex row so the supertext
-    // sits to the right of the count and top-aligns with the digits.
+    // sits to the right of the count; align-items (set in applyState from
+    // supertextAlign) controls whether it top- or bottom-aligns.
     offsetEl.style.display = 'flex';
     offsetEl.style.alignItems = 'flex-start';
     const supertextEl = document.createElement('span');
@@ -721,6 +722,8 @@
       // Layout updates always apply (even during animation).
       body.style.justifyContent = H_MAP[state.alignH] || 'center';
       body.style.alignItems = V_MAP[state.alignV] || 'center';
+      offsetEl.style.alignItems =
+        state.supertextAlign === 'bottom' ? 'flex-end' : 'flex-start';
       offsetEl.style.transform =
         `translate(${state.offsetX}px, ${state.offsetY}px)`;
       countEl.style.fontSize = state.fontSize + 'px';

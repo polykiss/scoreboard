@@ -895,6 +895,14 @@
       <label>Vertical offset <span class="value" id="supertextOffsetYValue"></span></label>
       <input type="range" id="supertextOffsetY" min="-100" max="100" step="1">
     </div>
+
+    <div class="field">
+      <label>Vertical align</label>
+      <div class="segments">
+        <label><input type="radio" name="supertextAlign" value="top"><span>Top</span></label>
+        <label><input type="radio" name="supertextAlign" value="bottom"><span>Bottom</span></label>
+      </div>
+    </div>
   </details>
 
   <div class="preset-section">
@@ -1101,6 +1109,9 @@
       supertextGapValue.textContent = state.supertextGap + 'px';
       if (!interacting.has(supertextOffsetYEl)) supertextOffsetYEl.value = state.supertextOffsetY;
       supertextOffsetYValue.textContent = state.supertextOffsetY + 'px';
+      const stAlign = state.supertextAlign === 'bottom' ? 'bottom' : 'top';
+      const stARadio = document.querySelector(`input[name="supertextAlign"][value="${stAlign}"]`);
+      if (stARadio) stARadio.checked = true;
 
       const hRadio = document.querySelector(`input[name="alignH"][value="${state.alignH}"]`);
       if (hRadio) hRadio.checked = true;
@@ -1403,6 +1414,9 @@
     );
     document.querySelectorAll('input[name="alignV"]').forEach(el =>
       el.addEventListener('change', () => el.checked && patch({ alignV: el.value }))
+    );
+    document.querySelectorAll('input[name="supertextAlign"]').forEach(el =>
+      el.addEventListener('change', () => el.checked && patch({ supertextAlign: el.value }))
     );
 
     // Resolution preset: update local slider bounds and send only the

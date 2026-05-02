@@ -52,6 +52,7 @@ const DEFAULT_STATE = {
   supertextSpacing: 11,
   supertextGap: -2,
   supertextOffsetY: -28,
+  supertextAlign: 'top',
 };
 
 // Whitelist of keys that controllers may update via the `patch` action.
@@ -91,6 +92,7 @@ const PATCH_KEYS = new Set([
   'supertextSpacing',
   'supertextGap',
   'supertextOffsetY',
+  'supertextAlign',
 ]);
 
 function listFonts() {
@@ -283,6 +285,9 @@ function handleMessage(raw) {
         }
         if (msg.patch.supertextValue !== undefined) {
           state.supertextValue = String(state.supertextValue == null ? '' : state.supertextValue);
+        }
+        if (msg.patch.supertextAlign !== undefined) {
+          state.supertextAlign = state.supertextAlign === 'bottom' ? 'bottom' : 'top';
         }
       }
       break;

@@ -2675,6 +2675,53 @@ test('supertextOffsetY updates immediately without count change', () => {
   assert.match(sup.style.transform, /translateY\(\s*-40px\s*\)/);
 });
 
+test('supertextAlign field exists in DEFAULT_STATE with default top', () => {
+  assert.strictEqual(DEFAULT_STATE.supertextAlign, 'top');
+});
+
+test('supertextAlign is in PATCH_KEYS', () => {
+  assert.ok(PATCH_KEYS.has('supertextAlign'));
+});
+
+test('supertextAlign top applies flex-start to offset element', () => {
+  const { renderer, offsetEl } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextAlign: 'top',
+  });
+  assert.strictEqual(offsetEl.style.alignItems, 'flex-start');
+});
+
+test('supertextAlign bottom applies flex-end to offset element', () => {
+  const { renderer, offsetEl } = setupRenderer(true);
+  renderer.applyState({
+    ...DEFAULT_STATE,
+    count: 0,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextAlign: 'bottom',
+  });
+  assert.strictEqual(offsetEl.style.alignItems, 'flex-end');
+});
+
+test('supertextAlign updates immediately without count change', () => {
+  const { renderer, offsetEl } = setupRenderer(true);
+  const base = {
+    ...DEFAULT_STATE,
+    count: 7,
+    supertextEnabled: true,
+    supertextValue: 'lbs',
+    supertextAlign: 'top',
+  };
+  renderer.applyState(base);
+  assert.strictEqual(offsetEl.style.alignItems, 'flex-start');
+  renderer.applyState({ ...base, supertextAlign: 'bottom' });
+  assert.strictEqual(offsetEl.style.alignItems, 'flex-end');
+});
+
 test('supertext FT{2} renders FT normal + 2 superscript at half size', () => {
   const { renderer } = setupRenderer(true);
   renderer.applyState({
